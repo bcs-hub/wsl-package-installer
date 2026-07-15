@@ -556,7 +556,8 @@ function Show-Summary([string]$DistroName) {
     # Guide links carry ?raw=true and download directly; tell the student
     # once where the file lands, before the first block with links.
     $pdfHintShown = $false
-    $pdfHint = 'NB! Juhendi link laadib PDF-faili otse alla — vaata brauseri allalaadimiste kausta.'
+    $pdfHint = 'NB! Juhendi avamiseks hoia Ctrl all ja klõpsa lingil (või kopeeri link brauserisse).' +
+        ' Link laadib PDF-faili otse alla — vaata brauseri allalaadimiste kausta.'
 
     if ($script:FailList.Count -gt 0) {
         Write-Host ''
