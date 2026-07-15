@@ -1,0 +1,70 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 931 >>
+stream
+BT
+/F1 16 Tf
+50 800 Td
+(Vali-IT: Zoomi installimine \(Windows\)) Tj
+/F1 10 Tf
+0 -30 Td
+() Tj
+0 -15 Td
+(*** PLACEHOLDER: asenda ekraanipiltidega juhendiga. Allpool on) Tj
+0 -15 Td
+(*** sammud, mida lõplik juhend peab katma.) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Tavaliselt paigaldab Vali-IT installer Zoomi automaatselt.) Tj
+0 -15 Td
+(Kasuta seda juhendit, kui automaatne paigaldus ebaõnnestus.) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(1. Ava brauseris: https://zoom.us/download) Tj
+0 -15 Td
+(2. Vali 'Zoom Workplace for Windows' ja vajuta 'Download'.) Tj
+0 -15 Td
+(3. Käivita allalaaditud installer ja oota, kuni paigaldus lõpeb.) Tj
+0 -15 Td
+(4. Esimesel käivitusel:) Tj
+0 -15 Td
+(   - loenguga liitumiseks piisab valikust 'Join a Meeting') Tj
+0 -15 Td
+(     \(kood ja parool tulevad õpetajalt\)) Tj
+0 -15 Td
+(   - konto loomine ei ole kohustuslik.) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Kontroll: Zoom avaneb ja 'Join a Meeting' nupp on nähtav.) Tj
+0 -15 Td
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000338 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1320
+%%EOF

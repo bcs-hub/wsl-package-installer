@@ -43,7 +43,7 @@ Linuxi poole testitavaks ilma Windowsita.
 | Paroolita sudo (`/etc/sudoers.d/vali-it`) | Null küsimust paigalduse ajal; WSL-is pole Linuxi parool nagunii turvapiir (`wsl -u root` on Windowsi poolelt alati avatud) |
 | Windowsi rakendused winget'iga, ainult puuduv | Olemasolevat paigaldust (mis tahes versioonis) ei puututa ega uuendata — uuendamine keset kursust on teadlik käsitsi tegevus, mitte kõrvalmõju |
 | PostgreSQL: superuser'i parool `student123`, kursuse DB `vali_it` | Ühesugune seis igal õpilasel; olemasolevat serverit EI puututa (kui parool ei sobi, läheb DB loomine käsitsi-nimekirja koos PDF-iga) |
-| IntelliJ seaded külvatakse enne esmakäivitust | Import ongi lihtsalt zip'i lahtipakkimine config-kausta (`dataDirectoryName` product-info.json-ist); olemasolevat konfiguratsiooni ei kirjutata üle; varutee on PDF 009 |
+| IntelliJ seaded külvatakse enne esmakäivitust | Import ongi lihtsalt zip'i lahtipakkimine config-kausta (`dataDirectoryName` product-info.json-ist); olemasolevat konfiguratsiooni ei kirjutata üle; varutee on PDF 011 |
 | Kolme nimekirjaga kokkuvõte, PDF-viited configist | Õnnestunud / ebaõnnestunud (+PDF käsitsi varutee) / käsitsi sammud (+PDF). Iga ebaõnnestumine on taastatav ilma õpetajata |
 | Vea korral menüü jätkab | Üks ebaõnnestunud samm raporteeritakse eestikeelselt; sammud jooksevad alamprotsessidena (`run_step`) |
 | Olemasolevat distrot EI kustutata kunagi | Automaatika ei tohi kellegi andmeid hävitada; katkise distro puhul suuname õpetaja juurde |

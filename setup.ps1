@@ -223,14 +223,14 @@ function Invoke-PostgresSetup {
     $psql = Get-ChildItem 'C:\Program Files\PostgreSQL\*\bin\psql.exe' -ErrorAction SilentlyContinue |
         Sort-Object FullName -Descending | Select-Object -First 1
     if (-not $psql) {
-        Add-Fail "PostgreSQL andmebaas '$DbName'" 'docs/install/007-Create-new-database-in-PostgreSQL.pdf'
+        Add-Fail "PostgreSQL andmebaas '$DbName'" 'docs/install/009-Create-new-database-in-PostgreSQL.pdf'
         return
     }
     $env:PGPASSWORD = $PgSuperPassword
     $exists = & $psql.FullName -h localhost -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$DbName'" 2>$null
     if ($LASTEXITCODE -ne 0) {
         Write-Warn "Ei saanud PostgreSQL serveriga ühendust (kas parool pole '$PgSuperPassword'?). Loo andmebaas käsitsi."
-        Add-Fail "PostgreSQL andmebaas '$DbName' (server olemas, aga ühendus ebaõnnestus)" 'docs/install/007-Create-new-database-in-PostgreSQL.pdf'
+        Add-Fail "PostgreSQL andmebaas '$DbName' (server olemas, aga ühendus ebaõnnestus)" 'docs/install/009-Create-new-database-in-PostgreSQL.pdf'
     } elseif ("$exists".Trim() -eq '1') {
         Write-Ok "Andmebaas '$DbName' — juba olemas"
         Add-Ok "PostgreSQL andmebaas '$DbName' — oli juba olemas"
@@ -240,7 +240,7 @@ function Invoke-PostgresSetup {
             Write-Ok "Andmebaas '$DbName' — loodud"
             Add-Ok "PostgreSQL andmebaas '$DbName'"
         } else {
-            Add-Fail "PostgreSQL andmebaas '$DbName'" 'docs/install/007-Create-new-database-in-PostgreSQL.pdf'
+            Add-Fail "PostgreSQL andmebaas '$DbName'" 'docs/install/009-Create-new-database-in-PostgreSQL.pdf'
         }
     }
     Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
@@ -268,8 +268,8 @@ function Find-IdeaExe {
 function Invoke-IdeaSetup {
     $ideaExe = Find-IdeaExe
     if (-not $ideaExe) {
-        Add-Fail 'IntelliJ pluginad' 'docs/install/014-IntelliJ-plugin-Rainbow-Brackets.pdf'
-        Add-Fail 'IntelliJ seaded' 'docs/install/009-IntelliJ-seadete-importimine.pdf'
+        Add-Fail 'IntelliJ pluginad' 'docs/install/016-IntelliJ-plugin-Rainbow-Brackets.pdf'
+        Add-Fail 'IntelliJ seaded' 'docs/install/011-IntelliJ-seadete-importimine.pdf'
         return
     }
     $installDir = Split-Path (Split-Path $ideaExe.FullName)
@@ -278,7 +278,7 @@ function Invoke-IdeaSetup {
     # Three outcomes: fresh config -> seed automatically; existing config ->
     # leave it alone but tell the student to import manually (PDF 009);
     # anything unexpected -> failed list.
-    $settingsPdf = 'docs/install/009-IntelliJ-seadete-importimine.pdf'
+    $settingsPdf = 'docs/install/011-IntelliJ-seadete-importimine.pdf'
     $outcome = 'failed'
     try {
         $info = Get-Content (Join-Path $installDir 'product-info.json') -Raw -ErrorAction Stop | ConvertFrom-Json

@@ -31,6 +31,8 @@ Lõpus kuvatakse kokkuvõte kolmes osas: mis õnnestus, mis ebaõnnestus
 | PostgreSQL 17 | andmebaasiserver (+ kursuse andmebaas `vali_it`) |
 | IntelliJ IDEA | arenduskeskkond (+ pluginad ja seaded) |
 | Docker Desktop | konteinerid |
+| Slack | kursuse suhtlus |
+| Zoom | videoloengud |
 
 **Ubuntu (WSL2) poolel** (loendid: [`config/packages.conf`](config/packages.conf),
 [`config/ai-tools.conf`](config/ai-tools.conf)):
@@ -43,11 +45,11 @@ curl, unzip, tree, jq, ripgrep, poppler-utils, postgresql-client.
 Neid ei saa automatiseerida; installer kuvab sama nimekirja kokkuvõttes
 (loend: [`config/manual-steps.conf`](config/manual-steps.conf)):
 
-1. [IntelliJ litsentsi aktiveerimine](docs/install/018-IntelliJ-litsentsi-aktiveerimine.pdf)
-2. [Docker Desktopi esmane käivitamine](docs/install/017-Docker-Desktopi-esmane-kaivitamine.pdf)
-3. [GitHubi konto ja gh sisselogimine](docs/install/019-GitHub-konto-ja-gh-sisselogimine.pdf)
-4. [Claude Code'i esimene käivitamine](docs/install/020-Claude-Code-esimene-kaivitamine.pdf)
-5. [Terminali vaikeshelli määramine](docs/install/012-Terminali-default-shell-i-maaramine-WSL-Ubuntu.pdf) (soovi korral)
+1. [IntelliJ litsentsi aktiveerimine](docs/install/020-IntelliJ-litsentsi-aktiveerimine.pdf)
+2. [Docker Desktopi esmane käivitamine](docs/install/019-Docker-Desktopi-esmane-kaivitamine.pdf)
+3. [GitHubi konto ja gh sisselogimine](docs/install/021-GitHub-konto-ja-gh-sisselogimine.pdf)
+4. [Claude Code'i esimene käivitamine](docs/install/022-Claude-Code-esimene-kaivitamine.pdf)
+5. [Terminali vaikeshelli määramine](docs/install/014-Terminali-default-shell-i-maaramine-WSL-Ubuntu.pdf) (soovi korral)
 
 Kõik sammsammulised juhendid on kaustas [`docs/install/`](docs/install/).
 
