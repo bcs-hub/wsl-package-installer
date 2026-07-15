@@ -80,5 +80,7 @@ directly.
 - Support Ubuntu 22.04 AND 24.04; never use a 24.04-only feature without a fallback.
 - `set -Eeuo pipefail` everywhere; no raw Bash stack traces shown to users.
 - ShellCheck clean, idempotent (re-run safe), `03-verify.sh` never installs anything.
-- `setup.ps1` must be written/kept in UTF-8 **with BOM** (Windows PowerShell 5.1 mangles
-  Estonian characters otherwise), and keep CRLF/LF rules from `.gitattributes`.
+- `setup.ps1` must be UTF-8 **without BOM**: through `irm | iex` (the student path) PS 5.1
+  shows a BOM as a red "command not found" error on line 1, while HTTP charset handles the
+  decoding anyway. Trade-off: running the *file* locally in PS 5.1 mangles Estonian
+  characters — test locally with PowerShell 7 (`pwsh`). Keep CRLF/LF rules from `.gitattributes`.

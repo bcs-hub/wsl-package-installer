@@ -1,4 +1,4 @@
-﻿# setup.ps1 - IT Crafters Installer, Windows bootstrap.
+# setup.ps1 - IT Crafters Installer, Windows bootstrap.
 #
 # The student's single entry point. Run in an elevated PowerShell:
 #   irm https://raw.githubusercontent.com/bcs-hub/wsl-package-installer/main/setup.ps1 | iex

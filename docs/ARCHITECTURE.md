@@ -38,6 +38,7 @@ Linuxi poole testitavaks ilma Windowsita.
 | Olemasolevat distrot EI kustutata kunagi | Automaatika ei tohi kellegi andmeid hävitada; katkise distro puhul suuname õpetaja juurde |
 | Olemasolev 22.04/24.04 võetakse kasutusele | Sellepärast toetabki installer mõlemat versiooni; mõlema olemasolul küsitakse (24.04 soovitatud), `$env:ITC_DISTRO` valib käsitsi |
 | setup.ps1-s pole tipptaseme `param()` plokki | Windows PowerShell 5.1 ei suuda seda `irm \| iex` kaudu parsida (õpilase tee); valikud tulevad keskkonnamuutujatest `ITC_DISTRO` ja `ITC_BRANCH` |
+| setup.ps1 on UTF-8 ILMA BOM-ita | PS 5.1 `iex` näitab BOM-i punase veana; HTTP charset-päis tagab õige dekodeerimise niikuinii. Lokaalselt testi PowerShell 7-ga |
 | setup.ps1 on jätkatav olekumasin | Iga samm: "kas juba tehtud? → jäta vahele". Taaskäivituse järel sama käsk jätkab; korduvkäivitus on ohutu |
 | Kood tõmmatakse Windowsi poolel (tarball) | Värskes distros pole git/curl garanteeritud; `tar` on alati olemas |
 | Tehniline väljund logifaili `~/.itcrafters/install.log` | Ekraanil ainult puhas eestikeelne progress; vea korral saadab õpilane logifaili õpetajale |
