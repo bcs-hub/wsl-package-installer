@@ -541,6 +541,83 @@ function Invoke-Installer([string]$Name, [string]$User) {
 
 # --- summary -----------------------------------------------------------------
 
+# Static manual steps from config + dynamic ones discovered during the run.
+function Get-AllManualSteps {
+    $manual = @(Read-ConfigFile (Join-Path $script:RepoDir 'config\manual-steps.conf') |
+        ForEach-Object { [pscustomobject]@{ Name = $_.F1; Pdf = $_.F2; Extra = '' } })
+    $manual += $script:ManualList
+    return $manual
+}
+
+function ConvertTo-HtmlText([string]$s) {
+    return ($s -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;')
+}
+
+# Write the same summary as a persistent, clickable HTML file on the desktop
+# and open it in the browser: the console disappears when the window closes,
+# links are not clickable in every console, and the file can be sent to the
+# instructor when something failed. Best-effort: never aborts the run.
+function Write-HtmlSummary([string]$DistroName) {
+    try {
+        $desktop = [Environment]::GetFolderPath('Desktop')
+        if (-not $desktop) { return }
+        $path = Join-Path $desktop 'Vali-IT-kokkuvote.html'
+
+        $h = @()
+        $h += '<!doctype html><html lang="et"><head><meta charset="utf-8">'
+        $h += '<title>Vali-IT paigalduse kokkuvõte</title><style>'
+        $h += 'body{font-family:"Segoe UI",sans-serif;max-width:800px;margin:2em auto;padding:0 1em;line-height:1.5}'
+        $h += 'h1{border-bottom:2px solid #ccc;padding-bottom:.3em} .aeg{color:#666}'
+        $h += '.ok{color:#1a7f37} .fail{color:#b30000} .manual{color:#9a6700}'
+        $h += 'li{margin:.4em 0} .lisainfo{font-size:.92em;color:#444} code{background:#f2f2f2;padding:2px 5px}'
+        $h += '</style></head><body>'
+        $h += '<h1>Vali-IT paigalduse kokkuvõte</h1>'
+        $h += "<p class='aeg'>$(Get-Date -Format 'dd.MM.yyyy HH:mm')</p>"
+        $h += '<p>Juhendi lingid laadivad PDF-faili otse alla — vaata brauseri allalaadimiste kausta.</p>'
+
+        if ($script:OkList.Count -gt 0) {
+            $h += '<h2 class="ok">Korras</h2><ul>'
+            foreach ($x in $script:OkList) { $h += "<li class='ok'>✓ $(ConvertTo-HtmlText $x)</li>" }
+            $h += '</ul>'
+        }
+        if ($script:FailList.Count -gt 0) {
+            $h += '<h2 class="fail">Ebaõnnestus — proovi installerit uuesti või tee käsitsi</h2><ul>'
+            foreach ($x in $script:FailList) {
+                $li = "<li class='fail'>✗ $(ConvertTo-HtmlText $x.Name)"
+                if ($x.Pdf) { $li += " — <a href='$(Get-DocUrl $x.Pdf)'>juhend (PDF)</a>" }
+                $h += "$li</li>"
+            }
+            $h += '</ul>'
+            $h += '<p>Uuesti proovimiseks ava PowerShell administraatorina ja käivita:<br>'
+            $h += "<code>irm https://raw.githubusercontent.com/$RepoSlug/main/setup.ps1 | iex</code></p>"
+        }
+        $manual = @(Get-AllManualSteps)
+        if ($manual.Count -gt 0) {
+            $h += '<h2 class="manual">Tee ise läbi</h2><ol>'
+            foreach ($m in $manual) {
+                $li = "<li>$(ConvertTo-HtmlText $m.Name)"
+                if ($m.Pdf) { $li += " — <a href='$(Get-DocUrl $m.Pdf)'>juhend (PDF)</a>" }
+                if ($m.Extra) {
+                    $extraHtml = (ConvertTo-HtmlText $m.Extra) -replace '(https?://\S+)', '<a href="$1">$1</a>'
+                    $li += "<br><span class='lisainfo'>$extraHtml</span>"
+                }
+                $h += "$li</li>"
+            }
+            $h += '</ol>'
+        }
+        if ($DistroName) {
+            $h += "<p>Ubuntu avamiseks kirjuta terminali: <code>wsl -d $DistroName</code> või otsi Start-menüüst Ubuntu.</p>"
+        }
+        $h += '</body></html>'
+
+        ($h -join "`n") | Out-File -FilePath $path -Encoding UTF8
+        Write-Ok "Kokkuvõte salvestati töölauale: Vali-IT-kokkuvote.html"
+        Start-Process $path
+    } catch {
+        Write-Warn 'Kokkuvõtte salvestamine töölauale ebaõnnestus.'
+    }
+}
+
 function Show-Summary([string]$DistroName) {
     Write-Host ''
     Write-Host '==========================================================' -ForegroundColor Cyan
@@ -571,10 +648,7 @@ function Show-Summary([string]$DistroName) {
         }
     }
 
-    # Static manual steps from config + dynamic ones discovered during the run.
-    $manual = @(Read-ConfigFile (Join-Path $script:RepoDir 'config\manual-steps.conf') |
-        ForEach-Object { [pscustomobject]@{ Name = $_.F1; Pdf = $_.F2; Extra = '' } })
-    $manual += $script:ManualList
+    $manual = @(Get-AllManualSteps)
     if ($manual.Count -gt 0) {
         if (-not $pdfHintShown) {
             Write-Host ''
@@ -622,6 +696,7 @@ Grant-PasswordlessSudo $target $user
 Install-InstallerFiles $target $user
 Invoke-Installer $target $user
 Show-Summary $target
+Write-HtmlSummary $target
 
 if ($script:FailList.Count -gt 0) {
     Write-Err 'Osa asju jäi tegemata — vaata punast nimekirja ülal.'
