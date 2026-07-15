@@ -39,6 +39,7 @@ $PgSuperPassword = 'postgres'
 # Result tracking for the final summary.
 $script:OkList = @()
 $script:FailList = @()
+$script:ManualList = @()   # dynamic manual steps discovered during the run
 $script:RepoTar = ''
 $script:RepoDir = ''
 
@@ -54,6 +55,9 @@ function Write-Err([string]$m) { Write-Host "✗ $m" -ForegroundColor Red }
 function Add-Ok([string]$Name) { $script:OkList += $Name }
 function Add-Fail([string]$Name, [string]$Pdf) {
     $script:FailList += [pscustomobject]@{ Name = $Name; Pdf = $Pdf }
+}
+function Add-Manual([string]$Name, [string]$Pdf) {
+    $script:ManualList += [pscustomobject]@{ Name = $Name; Pdf = $Pdf }
 }
 function Get-DocUrl([string]$Path) { "https://github.com/$RepoSlug/blob/main/$Path" }
 
@@ -177,6 +181,10 @@ function Install-WindowsApps {
         $present = $false
         if ($checkCmd -and $checkCmd -ne '-' -and (Get-Command $checkCmd -ErrorAction SilentlyContinue)) {
             $present = $true
+        } elseif ($a.F1 -like 'JetBrains.IntelliJIDEA*' -and (Find-IdeaExe)) {
+            # IDEA has no PATH command; Toolbox installs are invisible to
+            # 'winget list --id', so look for idea64.exe in known locations.
+            $present = $true
         } elseif (Test-WingetApp $a.F1) {
             $present = $true
         }
@@ -235,12 +243,27 @@ function Invoke-PostgresSetup {
     Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
 }
 
+# Find idea64.exe wherever IDEA may live: classic installer / winget
+# (Program Files) or JetBrains Toolbox (LocalAppData). Newest version wins.
+function Find-IdeaExe {
+    $globs = @(
+        'C:\Program Files\JetBrains\*\bin\idea64.exe',
+        (Join-Path $env:LOCALAPPDATA 'Programs\*\bin\idea64.exe'),
+        (Join-Path $env:LOCALAPPDATA 'JetBrains\Toolbox\apps\*\*\*\bin\idea64.exe')
+    )
+    $found = @()
+    foreach ($g in $globs) {
+        $found += @(Get-ChildItem $g -ErrorAction SilentlyContinue)
+    }
+    return $found | Sort-Object { $_.VersionInfo.ProductVersion } -Descending |
+        Select-Object -First 1
+}
+
 # Seed the exported IDE settings (before first launch) and install the
 # course plugins headlessly. Both are best-effort: failures land in the
 # summary with a PDF fallback, they never abort the run.
 function Invoke-IdeaSetup {
-    $ideaExe = Get-ChildItem 'C:\Program Files\JetBrains\*\bin\idea64.exe' -ErrorAction SilentlyContinue |
-        Select-Object -First 1
+    $ideaExe = Find-IdeaExe
     if (-not $ideaExe) {
         Add-Fail 'IntelliJ pluginad' 'docs/install/014-IntelliJ-plugin-Rainbow-Brackets.pdf'
         Add-Fail 'IntelliJ seaded' 'docs/install/009-IntelliJ-seadete-importimine.pdf'
@@ -249,27 +272,37 @@ function Invoke-IdeaSetup {
     $installDir = Split-Path (Split-Path $ideaExe.FullName)
 
     # Settings: the import mechanism is just "unzip into the config dir".
-    # Only seed when the student has no existing configuration.
-    $seeded = $false
+    # Three outcomes: fresh config -> seed automatically; existing config ->
+    # leave it alone but tell the student to import manually (PDF 009);
+    # anything unexpected -> failed list.
+    $settingsPdf = 'docs/install/009-IntelliJ-seadete-importimine.pdf'
+    $outcome = 'failed'
     try {
         $info = Get-Content (Join-Path $installDir 'product-info.json') -Raw -ErrorAction Stop | ConvertFrom-Json
         if ($info.dataDirectoryName) {
             $cfgDir = Join-Path $env:APPDATA "JetBrains\$($info.dataDirectoryName)"
             if (Test-Path (Join-Path $cfgDir 'options')) {
-                $seeded = $true   # existing config — leave it alone
+                $outcome = 'existing'
             } else {
                 New-Item -ItemType Directory -Path $cfgDir -Force | Out-Null
                 Expand-Archive -Path (Join-Path $script:RepoDir 'docs\IntelliJ\settings.zip') `
                     -DestinationPath $cfgDir -Force -ErrorAction Stop
-                $seeded = $true
+                $outcome = 'seeded'
             }
         }
-    } catch { $seeded = $false }
-    if ($seeded) {
-        Write-Ok 'IntelliJ seaded — paigas'
-        Add-Ok 'IntelliJ seaded (heap, ML-completion, brauser jm)'
-    } else {
-        Add-Fail 'IntelliJ seadete import' 'docs/install/009-IntelliJ-seadete-importimine.pdf'
+    } catch { $outcome = 'failed' }
+    switch ($outcome) {
+        'seeded' {
+            Write-Ok 'IntelliJ seaded — paigaldatud'
+            Add-Ok 'IntelliJ seaded (heap, ML-completion, brauser jm)'
+        }
+        'existing' {
+            Write-Warn 'IntelliJ-l on olemasolev konfiguratsioon — seadeid ei kirjutatud üle. Impordi need ise.'
+            Add-Manual 'IntelliJ seaded: impordi kursuse seaded käsitsi (sul oli olemasolev IDEA konfiguratsioon)' $settingsPdf
+        }
+        default {
+            Add-Fail 'IntelliJ seadete import' $settingsPdf
+        }
     }
 
     $plugins = @(Read-ConfigFile (Join-Path $script:RepoDir 'config\intellij-plugins.conf'))
@@ -525,15 +558,18 @@ function Show-Summary([string]$DistroName) {
         }
     }
 
-    $manual = @(Read-ConfigFile (Join-Path $script:RepoDir 'config\manual-steps.conf'))
+    # Static manual steps from config + dynamic ones discovered during the run.
+    $manual = @(Read-ConfigFile (Join-Path $script:RepoDir 'config\manual-steps.conf') |
+        ForEach-Object { [pscustomobject]@{ Name = $_.F1; Pdf = $_.F2 } })
+    $manual += $script:ManualList
     if ($manual.Count -gt 0) {
         Write-Host ''
         Write-Host 'Tee ise läbi (neid ei saa automatiseerida):' -ForegroundColor Yellow
         $j = 0
         foreach ($m in $manual) {
             $j++
-            Write-Host "  $j. $($m.F1)" -ForegroundColor Yellow
-            if ($m.F2) { Write-Host "      Juhend: $(Get-DocUrl $m.F2)" -ForegroundColor Yellow }
+            Write-Host "  $j. $($m.Name)" -ForegroundColor Yellow
+            if ($m.Pdf) { Write-Host "      Juhend: $(Get-DocUrl $m.Pdf)" -ForegroundColor Yellow }
         }
     }
 
