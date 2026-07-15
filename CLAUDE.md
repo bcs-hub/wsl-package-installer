@@ -54,7 +54,9 @@ directly.
   via `run_logged`, never to the screen.
 - NVM is a shell function, not a binary: `lib/checks.sh::load_nvm` sources it explicitly
   (with `set -u` relaxed — nvm.sh is not set-u clean). Always use `tool_available`, not
-  bare `command -v`, when checking tools.
+  bare `command -v`, when checking tools: it loads NVM first AND rejects `/mnt/*` hits
+  (WSL interop puts Windows-side tools on PATH; a tool installed only on Windows must not
+  satisfy a Linux-side check).
 
 ## Binding Decisions (2026-07-15, override the spec — rationale in docs/ARCHITECTURE.md)
 

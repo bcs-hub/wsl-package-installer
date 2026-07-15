@@ -47,13 +47,14 @@ load_nvm() {
     set -u
 }
 
-# tool_available <command> - true if the command is usable, taking into
-# account tools that only exist after NVM is loaded (nvm, node, npm, ...).
+# tool_available <command> - true if the command is usable INSIDE the distro,
+# taking into account tools that only exist after NVM is loaded (nvm, node,
+# npm, ...). WSL interop puts Windows tools (/mnt/c/...) on PATH; those must
+# NOT count, otherwise a tool installed only on Windows would wrongly satisfy
+# the check and the Linux install would be skipped.
 tool_available() {
-    local cmd="$1"
-    if command_exists "$cmd"; then
-        return 0
-    fi
-    load_nvm >/dev/null 2>&1 || return 1
-    command -v "$cmd" >/dev/null 2>&1
+    local cmd="$1" found
+    load_nvm >/dev/null 2>&1 || true
+    found="$(command -v "$cmd" 2>/dev/null)" || return 1
+    [[ "$found" != /mnt/* ]]
 }
