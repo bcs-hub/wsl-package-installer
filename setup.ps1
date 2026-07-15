@@ -18,7 +18,11 @@
 $Distro = if ($env:ITC_DISTRO) { $env:ITC_DISTRO } else { '' }
 $Branch = if ($env:ITC_BRANCH) { $env:ITC_BRANCH } else { 'main' }
 
-$ErrorActionPreference = 'Stop'
+# Deliberately NOT 'Stop': in Windows PowerShell 5.1 that turns any native
+# command's stderr output (e.g. harmless WSL systemd warnings) into a fatal
+# error whenever the stream is redirected. Failures are detected through
+# $LASTEXITCODE checks instead; cmdlets that must throw use -ErrorAction Stop.
+$ErrorActionPreference = 'Continue'
 
 $RepoSlug = 'bcs-hub/wsl-package-installer'
 
@@ -42,8 +46,10 @@ function Fail([string]$m) {
 }
 
 # Run a command inside the distro as root. Returns stdout; sets $LASTEXITCODE.
+# stderr is dropped: fresh distros print harmless systemd-session warnings
+# that would only scare students; failures are detected via $LASTEXITCODE.
 function Invoke-DistroRoot([string]$Name, [string]$Script) {
-    & wsl.exe -d $Name -u root -- bash -c $Script
+    & wsl.exe -d $Name -u root -- bash -c $Script 2>$null
 }
 
 function Test-IsAdmin {
@@ -200,7 +206,7 @@ function Assert-DistroHealthy([string]$Name) {
 # Ensure the distro has a normal (non-root) default user; create one when
 # missing. Existing users and their passwords are never modified.
 function Resolve-DistroUser([string]$Name) {
-    $current = (& wsl.exe -d $Name -- whoami | Out-String).Trim()
+    $current = (& wsl.exe -d $Name -- whoami 2>$null | Out-String).Trim()
     if ($LASTEXITCODE -eq 0 -and $current -and $current -ne 'root') {
         Write-Ok "Kasutan olemasolevat Ubuntu kasutajat: $current"
         return $current
@@ -246,13 +252,13 @@ function Install-InstallerFiles([string]$Name, [string]$User) {
 
     Write-Info 'Laen alla IT Crafters Installeri...'
     try {
-        Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
+        Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
     } catch {
         Fail "Allalaadimine ebaõnnestus ($url). Kontrolli internetiühendust ja proovi uuesti."
     }
 
     $winPath = $tmp -replace '\\', '/'
-    $wslTar = (& wsl.exe -d $Name -- wslpath -a $winPath | Out-String).Trim()
+    $wslTar = (& wsl.exe -d $Name -- wslpath -a $winPath 2>$null | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or -not $wslTar) { Fail 'Allalaaditud faili asukoha teisendamine ebaõnnestus.' }
 
     $script = "rm -rf ~/$InstallDirName && mkdir -p ~/$InstallDirName && " +
