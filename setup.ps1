@@ -56,16 +56,17 @@ function Add-Ok([string]$Name) { $script:OkList += $Name }
 function Add-Fail([string]$Name, [string]$Pdf) {
     $script:FailList += [pscustomobject]@{ Name = $Name; Pdf = $Pdf }
 }
-function Add-Manual([string]$Name, [string]$Pdf) {
-    $script:ManualList += [pscustomobject]@{ Name = $Name; Pdf = $Pdf }
+function Add-Manual([string]$Name, [string]$Pdf, [string]$Extra = '') {
+    $script:ManualList += [pscustomobject]@{ Name = $Name; Pdf = $Pdf; Extra = $Extra }
 }
 function Get-DocUrl([string]$Path) { "https://github.com/$RepoSlug/blob/main/$Path" }
+function Get-RawUrl([string]$Path) { "https://raw.githubusercontent.com/$RepoSlug/main/$Path" }
 
 # Exiting kills the whole PowerShell session under 'irm | iex' — the console
 # window closes before the student can read anything. Always pause first.
 function Stop-Installer([int]$Code) {
     Write-Host ''
-    Read-Host 'Vajuta Enter, et lõpetada' | Out-Null
+    Read-Host 'Vajuta Enter, et lõpetada (aken läheb kinni)' | Out-Null
     exit $Code
 }
 
@@ -298,7 +299,8 @@ function Invoke-IdeaSetup {
         }
         'existing' {
             Write-Warn 'IntelliJ-l on olemasolev konfiguratsioon — seadeid ei kirjutatud üle. Impordi need ise.'
-            Add-Manual 'IntelliJ seaded: impordi kursuse seaded käsitsi (sul oli olemasolev IDEA konfiguratsioon)' $settingsPdf
+            Add-Manual 'IntelliJ seaded: impordi kursuse seaded käsitsi (sul oli olemasolev IDEA konfiguratsioon)' $settingsPdf `
+                "Seadete fail: $(Get-RawUrl 'docs/IntelliJ/settings.zip') — salvesta TERVE zip ja ÄRA paki seda lahti (IDEA impordib zip-faili tervikuna)"
         }
         default {
             Add-Fail 'IntelliJ seadete import' $settingsPdf
@@ -549,7 +551,16 @@ function Show-Summary([string]$DistroName) {
         foreach ($x in $script:OkList) { Write-Host "  ✓ $x" -ForegroundColor Green }
     }
 
+    # GitHub does not always render PDFs in the browser; show the download
+    # hint once, before the first block that contains guide links.
+    $pdfHintShown = $false
+    $pdfHint = 'NB! GitHub ei pruugi PDF-juhendit brauseris avada — laadi fail lehelt alla' +
+        ' (allalaadimisnupp: nool alla kriipsu poole, lehe paremas servas).'
+
     if ($script:FailList.Count -gt 0) {
+        Write-Host ''
+        Write-Info $pdfHint
+        $pdfHintShown = $true
         Write-Host ''
         Write-Host 'EBAÕNNESTUS — proovi sama käsku uuesti või tee käsitsi:' -ForegroundColor Red
         foreach ($x in $script:FailList) {
@@ -560,9 +571,13 @@ function Show-Summary([string]$DistroName) {
 
     # Static manual steps from config + dynamic ones discovered during the run.
     $manual = @(Read-ConfigFile (Join-Path $script:RepoDir 'config\manual-steps.conf') |
-        ForEach-Object { [pscustomobject]@{ Name = $_.F1; Pdf = $_.F2 } })
+        ForEach-Object { [pscustomobject]@{ Name = $_.F1; Pdf = $_.F2; Extra = '' } })
     $manual += $script:ManualList
     if ($manual.Count -gt 0) {
+        if (-not $pdfHintShown) {
+            Write-Host ''
+            Write-Info $pdfHint
+        }
         Write-Host ''
         Write-Host 'Tee ise läbi (neid ei saa automatiseerida):' -ForegroundColor Yellow
         $j = 0
@@ -570,6 +585,7 @@ function Show-Summary([string]$DistroName) {
             $j++
             Write-Host "  $j. $($m.Name)" -ForegroundColor Yellow
             if ($m.Pdf) { Write-Host "      Juhend: $(Get-DocUrl $m.Pdf)" -ForegroundColor Yellow }
+            if ($m.Extra) { Write-Host "      $($m.Extra)" -ForegroundColor Yellow }
         }
     }
 
