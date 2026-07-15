@@ -66,8 +66,10 @@ directly.
   creates the Linux user and grants passwordless sudo via `/etc/sudoers.d/itcrafters`
   (through `wsl -u root`; never touch an existing user's password).
 - **Never delete/reset/unregister an existing distro.** Reuse existing 22.04/24.04; if
-  both exist, ask (24.04 recommended; `-Distro` param skips the prompt). Broken distro →
+  both exist, ask (24.04 recommended; `$env:ITC_DISTRO` skips the prompt). Broken distro →
   Estonian message referring to the instructor, no destructive auto-repair.
+- **No top-level `param()` in setup.ps1** — Windows PowerShell 5.1 cannot parse it through
+  `irm | iex` (the student path). Overrides are env vars: `$env:ITC_DISTRO`, `$env:ITC_BRANCH`.
 - **Public GitHub repo: `bcs-hub/wsl-package-installer`**; students fetch `main` directly
   (`$RepoSlug` in setup.ps1, one-liner URL in README.md). Nothing sensitive in the repo,
   ever.

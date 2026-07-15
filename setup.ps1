@@ -10,12 +10,13 @@
 #
 # All user-facing messages are in Estonian; comments are in English.
 
-param(
-    # Force a specific distro (instructor/testing use), e.g. -Distro Ubuntu-22.04
-    [string]$Distro = '',
-    # Install from a branch other than main (testing use)
-    [string]$Branch = 'main'
-)
+# NOTE: no param() block on purpose — Windows PowerShell 5.1 cannot parse a
+# top-level param block through 'irm ... | iex'. Optional overrides come from
+# environment variables instead (instructor/testing use):
+#   $env:ITC_DISTRO = 'Ubuntu-22.04'   # force a specific distro
+#   $env:ITC_BRANCH = 'my-branch'      # install from a non-main branch
+$Distro = if ($env:ITC_DISTRO) { $env:ITC_DISTRO } else { '' }
+$Branch = if ($env:ITC_BRANCH) { $env:ITC_BRANCH } else { 'main' }
 
 $ErrorActionPreference = 'Stop'
 
