@@ -34,7 +34,7 @@ $SupportedDistros = @('Ubuntu-24.04', 'Ubuntu-22.04')
 $DefaultDistro = 'Ubuntu-24.04'
 $InstallDirName = 'vali-it-installer'
 $DbName = 'vali_it'
-$PgSuperPassword = 'postgres'
+$PgSuperPassword = 'student123'
 
 # Result tracking for the final summary.
 $script:OkList = @()
