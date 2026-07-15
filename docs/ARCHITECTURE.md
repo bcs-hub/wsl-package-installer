@@ -1,6 +1,6 @@
 # Arhitektuur ja disainiotsused
 
-See dokument fikseerib IT Crafters Installeri arhitektuuri ja otsuste
+See dokument fikseerib Vali-IT Installeri arhitektuuri ja otsuste
 põhjendused. Kinnitatud 2026-07-15.
 
 ## Suur pilt: kaks kihti
@@ -12,8 +12,11 @@ põhjendused. Kinnitatud 2026-07-15.
     ▼
 ┌─────────────────────────────────────────────┐
 │  KIHT 1: setup.ps1  (Windows)               │
-│  WSL2 + Ubuntu valmis, kasutaja loodud,     │
-│  paroolita sudo, repo tõmmatud distrosse    │
+│  1. Windowsi rakendused (winget):           │
+│     Git, Node, PostgreSQL(+vali_it DB),     │
+│     IntelliJ (+pluginad+seaded), Docker     │
+│  2. WSL2 + Ubuntu, kasutaja, paroolita sudo │
+│  3. Lõpukokkuvõte (✓ / ✗+PDF / käsitsi+PDF) │
 └─────────────────────────────────────────────┘
     │  wsl -d <distro> -- ./install.sh --all
     ▼
@@ -22,6 +25,10 @@ põhjendused. Kinnitatud 2026-07-15.
 │  (Ubuntu sees) paigaldab → kontrollib       │
 └─────────────────────────────────────────────┘
 ```
+
+Windowsi rakendused paigaldatakse ENNE WSL-i osa: kui WSL vajab
+taaskäivitust, on winget-osa selleks hetkeks juba tehtud ja teine jooks
+teeb ainult Ubuntu poole.
 
 Kihid on lõdvalt seotud: kiht 2 ei tea kihi 1 olemasolust midagi ja
 töötab iseseisvalt (menüü, Docker-konteiner, päris-Ubuntu). See teeb
@@ -33,7 +40,11 @@ Linuxi poole testitavaks ilma Windowsita.
 |---|---|
 | Docker on skoobist väljas | WSL2 systemd/Docker Desktopi keerukus; tehakse eraldi projektina |
 | Installer jookseb tavakasutajana, mitte root'ina | NVM, Node ja Claude Code peavad minema õpilase kodukausta; `sudo` ainult apt-käskudel. `install.sh` keeldub root'ina käivitumast |
-| Paroolita sudo (`/etc/sudoers.d/itcrafters`) | Null küsimust paigalduse ajal; WSL-is pole Linuxi parool nagunii turvapiir (`wsl -u root` on Windowsi poolelt alati avatud) |
+| Paroolita sudo (`/etc/sudoers.d/vali-it`) | Null küsimust paigalduse ajal; WSL-is pole Linuxi parool nagunii turvapiir (`wsl -u root` on Windowsi poolelt alati avatud) |
+| Windowsi rakendused winget'iga, ainult puuduv | Olemasolevat paigaldust (mis tahes versioonis) ei puututa ega uuendata — uuendamine keset kursust on teadlik käsitsi tegevus, mitte kõrvalmõju |
+| PostgreSQL: superuser'i parool `postgres`, kursuse DB `vali_it` | Ühesugune seis igal õpilasel; olemasolevat serverit EI puututa (kui parool ei sobi, läheb DB loomine käsitsi-nimekirja koos PDF-iga) |
+| IntelliJ seaded külvatakse enne esmakäivitust | Import ongi lihtsalt zip'i lahtipakkimine config-kausta (`dataDirectoryName` product-info.json-ist); olemasolevat konfiguratsiooni ei kirjutata üle; varutee on PDF 009 |
+| Kolme nimekirjaga kokkuvõte, PDF-viited configist | Õnnestunud / ebaõnnestunud (+PDF käsitsi varutee) / käsitsi sammud (+PDF). Iga ebaõnnestumine on taastatav ilma õpetajata |
 | Vea korral menüü jätkab | Üks ebaõnnestunud samm raporteeritakse eestikeelselt; sammud jooksevad alamprotsessidena (`run_step`) |
 | Olemasolevat distrot EI kustutata kunagi | Automaatika ei tohi kellegi andmeid hävitada; katkise distro puhul suuname õpetaja juurde |
 | Olemasolev 22.04/24.04 võetakse kasutusele | Sellepärast toetabki installer mõlemat versiooni; mõlema olemasolul küsitakse (24.04 soovitatud), `$env:ITC_DISTRO` valib käsitsi |
@@ -41,7 +52,7 @@ Linuxi poole testitavaks ilma Windowsita.
 | setup.ps1 on UTF-8 ILMA BOM-ita | PS 5.1 `iex` näitab BOM-i punase veana; HTTP charset-päis tagab õige dekodeerimise niikuinii. Lokaalselt testi PowerShell 7-ga |
 | setup.ps1 on jätkatav olekumasin | Iga samm: "kas juba tehtud? → jäta vahele". Taaskäivituse järel sama käsk jätkab; korduvkäivitus on ohutu |
 | Kood tõmmatakse Windowsi poolel (tarball) | Värskes distros pole git/curl garanteeritud; `tar` on alati olemas |
-| Tehniline väljund logifaili `~/.itcrafters/install.log` | Ekraanil ainult puhas eestikeelne progress; vea korral saadab õpilane logifaili õpetajale |
+| Tehniline väljund logifaili `~/.vali-it/install.log` | Ekraanil ainult puhas eestikeelne progress; vea korral saadab õpilane logifaili õpetajale |
 | Eestikeelsed stringid otse koodis | Ainult üks keel on nõutud; kogu väljund käib läbi `ui.sh` abifunktsioonide, nii et hilisem väljatõstmine on lihtne |
 | `main` peab alati töötama | Õpilased tõmbavad otse `main`-ist; CI on värav |
 
@@ -77,6 +88,15 @@ Paigaldaja ja verify loevad **sama** faili — uus rida configis annab
 automaatselt nii paigalduse kui kontrolli. Eriloogikaga tööriistade
 (ai-tools.conf) konventsioon: id `x` → funktsioon `install_tool_x`
 failis `lib/installer.sh`.
+
+Windowsi kihi configid (setup.ps1 pakib tarball'i lahti ka Windowsi
+poolel, et neid lugeda):
+
+| Fail | Formaat | Kasutus |
+|---|---|---|
+| `config/windows-apps.conf` | `winget-id \| kirjeldus \| PDF` | winget-mootor; PDF on käsitsi varutee kokkuvõttes |
+| `config/intellij-plugins.conf` | `plugin-id \| nimi \| PDF` | headless `idea64.exe installPlugins` |
+| `config/manual-steps.conf` | `tekst \| PDF` | kokkuvõtte "Tee ise läbi" nimekiri |
 
 ### Veakäsitlus
 

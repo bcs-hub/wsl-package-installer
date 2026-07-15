@@ -1,0 +1,76 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 1112 >>
+stream
+BT
+/F1 16 Tf
+50 800 Td
+(Vali-IT: GitHubi konto ja gh sisselogimine) Tj
+/F1 10 Tf
+0 -30 Td
+() Tj
+0 -15 Td
+(*** PLACEHOLDER: asenda ekraanipiltidega juhendiga. Allpool on) Tj
+0 -15 Td
+(*** sammud, mida lõplik juhend peab katma.) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Eeldus: GitHub CLI \(gh\) on Ubuntus paigaldatud \(installer tegi selle\).) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(1. Loo GitHubi konto \(kui pole\): https://github.com/signup) Tj
+0 -15 Td
+(2. Ava Ubuntu terminal \(Start-menüüst 'Ubuntu' või käsuga: wsl\).) Tj
+0 -15 Td
+(3. Käivita:  gh auth login) Tj
+0 -15 Td
+(   - Vali: GitHub.com) Tj
+0 -15 Td
+(   - Vali: HTTPS) Tj
+0 -15 Td
+(   - 'Authenticate Git with your GitHub credentials?' -> Yes) Tj
+0 -15 Td
+(   - Vali: Login with a web browser) Tj
+0 -15 Td
+(   - Kopeeri kood, ava brauseris näidatud aadress, kleebi kood, kinnita.) Tj
+0 -15 Td
+(4. Seadista Git enda nimega \(asenda oma andmetega\):) Tj
+0 -15 Td
+(   git config --global user.name 'Sinu Nimi') Tj
+0 -15 Td
+(   git config --global user.email 'sinu@meil.ee') Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Kontroll:  gh auth status  \(peab näitama 'Logged in'\).) Tj
+0 -15 Td
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000338 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1502
+%%EOF

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh - IT Crafters Installer main entry point.
+# install.sh - Vali-IT Installer main entry point.
 #
 # Modes:
 #   ./install.sh            interactive Estonian menu
@@ -36,7 +36,7 @@ run_all() {
 
 show_menu() {
     printf '\n'
-    ui_header "IT Crafters Installer" "Ubuntu keskkonna seadistamine"
+    ui_header "Vali-IT Installer" "Ubuntu keskkonna seadistamine"
     printf '\n'
     printf '  1. Paigalda süsteemi tööriistad\n'
     printf '  2. Paigalda AI tööriistad\n'
@@ -71,7 +71,7 @@ menu_loop() {
 
 usage() {
     cat <<EOF
-IT Crafters Installer — Ubuntu keskkonna seadistamine
+Vali-IT Installer — Ubuntu keskkonna seadistamine
 
 Kasutamine:
   ./install.sh            interaktiivne menüü

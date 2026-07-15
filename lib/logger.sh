@@ -10,7 +10,7 @@
 [[ -n "${_ITC_LOGGER_LOADED:-}" ]] && return 0
 _ITC_LOGGER_LOADED=1
 
-ITC_LOG_DIR="${ITC_LOG_DIR:-$HOME/.itcrafters}"
+ITC_LOG_DIR="${ITC_LOG_DIR:-$HOME/.vali-it}"
 ITC_LOG_FILE="${ITC_LOG_FILE:-$ITC_LOG_DIR/install.log}"
 
 log_init() {

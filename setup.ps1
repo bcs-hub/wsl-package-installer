@@ -1,4 +1,4 @@
-# setup.ps1 - IT Crafters Installer, Windows bootstrap.
+# setup.ps1 - Vali-IT Installer, Windows bootstrap.
 #
 # The student's single entry point. Run in an elevated PowerShell:
 #   irm https://raw.githubusercontent.com/bcs-hub/wsl-package-installer/main/setup.ps1 | iex
@@ -6,9 +6,13 @@
 # Resumable state machine: every step checks whether it is already done
 # and skips it, so re-running the same command (e.g. after the WSL reboot)
 # simply continues from where it left off. Nothing is ever deleted:
-# existing distros, users and passwords are left untouched.
+# existing distros, apps, users and passwords are left untouched.
+#
+# Order: Windows apps (winget) first, then WSL + Ubuntu. A possible WSL
+# reboot therefore lands AFTER the Windows apps are already done.
 #
 # All user-facing messages are in Estonian; comments are in English.
+# NB: keep this file UTF-8 WITHOUT BOM (PS 5.1 + 'irm | iex' chokes on BOM).
 
 # NOTE: no param() block on purpose — Windows PowerShell 5.1 cannot parse a
 # top-level param block through 'irm ... | iex'. Optional overrides come from
@@ -28,7 +32,15 @@ $RepoSlug = 'bcs-hub/wsl-package-installer'
 
 $SupportedDistros = @('Ubuntu-24.04', 'Ubuntu-22.04')
 $DefaultDistro = 'Ubuntu-24.04'
-$InstallDirName = 'itcrafters-installer'
+$InstallDirName = 'vali-it-installer'
+$DbName = 'vali_it'
+$PgSuperPassword = 'postgres'
+
+# Result tracking for the final summary.
+$script:OkList = @()
+$script:FailList = @()
+$script:RepoTar = ''
+$script:RepoDir = ''
 
 # Make wsl.exe output plain UTF-8 instead of UTF-16 so it can be parsed.
 $env:WSL_UTF8 = '1'
@@ -38,6 +50,13 @@ function Write-Info([string]$m) { Write-Host $m -ForegroundColor Cyan }
 function Write-Ok([string]$m) { Write-Host "✓ $m" -ForegroundColor Green }
 function Write-Warn([string]$m) { Write-Host "! $m" -ForegroundColor Yellow }
 function Write-Err([string]$m) { Write-Host "✗ $m" -ForegroundColor Red }
+
+function Add-Ok([string]$Name) { $script:OkList += $Name }
+function Add-Fail([string]$Name, [string]$Pdf) {
+    $script:FailList += [pscustomobject]@{ Name = $Name; Pdf = $Pdf }
+}
+function Get-DocUrl([string]$Path) { "https://github.com/$RepoSlug/blob/main/$Path" }
+
 # Exiting kills the whole PowerShell session under 'irm | iex' — the console
 # window closes before the student can read anything. Always pause first.
 function Stop-Installer([int]$Code) {
@@ -58,6 +77,23 @@ function Fail([string]$m) {
 # that would only scare students; failures are detected via $LASTEXITCODE.
 function Invoke-DistroRoot([string]$Name, [string]$Script) {
     & wsl.exe -d $Name -u root -- bash -c $Script 2>$null
+}
+
+# Read a "a | b | c" config file into objects with F1/F2/F3 fields.
+function Read-ConfigFile([string]$Path) {
+    $rows = @()
+    if (-not (Test-Path $Path)) { return $rows }
+    foreach ($raw in (Get-Content -Path $Path -Encoding UTF8)) {
+        $line = ($raw -split '#', 2)[0].Trim()
+        if (-not $line) { continue }
+        $p = $line -split '\|'
+        $rows += [pscustomobject]@{
+            F1 = $p[0].Trim()
+            F2 = $(if ($p.Count -gt 1) { $p[1].Trim() } else { '' })
+            F3 = $(if ($p.Count -gt 2) { $p[2].Trim() } else { '' })
+        }
+    }
+    return $rows
 }
 
 function Test-IsAdmin {
@@ -88,6 +124,176 @@ function Assert-Prerequisites {
     Write-Ok 'Windowsi eelkontroll läbitud.'
 }
 
+# Download the installer from GitHub and unpack it on the Windows side too:
+# the config files drive the Windows-apps step, and tar.exe ships with
+# Windows 10 1803+, so no extra tools are needed.
+function Get-RepoFiles {
+    $url = "https://github.com/$RepoSlug/archive/refs/heads/$Branch.tar.gz"
+    $script:RepoTar = Join-Path $env:TEMP 'vali-it-installer.tar.gz'
+    $script:RepoDir = Join-Path $env:TEMP 'vali-it-installer-src'
+
+    Write-Info 'Laen alla Vali-IT installeri...'
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $script:RepoTar -UseBasicParsing -ErrorAction Stop
+    } catch {
+        Fail "Allalaadimine ebaõnnestus ($url). Kontrolli internetiühendust ja proovi uuesti."
+    }
+    if (Test-Path $script:RepoDir) { Remove-Item -Recurse -Force $script:RepoDir }
+    New-Item -ItemType Directory -Path $script:RepoDir -Force | Out-Null
+    & tar.exe -xzf $script:RepoTar -C $script:RepoDir --strip-components=1
+    if ($LASTEXITCODE -ne 0) { Fail 'Installeri lahtipakkimine ebaõnnestus.' }
+    Write-Ok 'Installer on alla laaditud.'
+}
+
+# --- Windows apps (winget) ---------------------------------------------------
+
+function Test-WingetApp([string]$Id) {
+    & winget list --id $Id -e --accept-source-agreements *> $null
+    return ($LASTEXITCODE -eq 0)
+}
+
+# Install every missing app from config/windows-apps.conf. Existing installs
+# (any version) are left untouched — upgrading mid-course is a deliberate
+# manual act, not a side effect.
+function Install-WindowsApps {
+    Write-Host ''
+    Write-Info 'Paigaldan Windowsi rakendused...'
+    $apps = @(Read-ConfigFile (Join-Path $script:RepoDir 'config\windows-apps.conf'))
+
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Write-Warn 'winget puudub — Windowsi rakendusi ei saa automaatselt paigaldada.'
+        foreach ($a in $apps) { Add-Fail $a.F2 $a.F3 }
+        return
+    }
+
+    $i = 0
+    $n = $apps.Count
+    foreach ($a in $apps) {
+        $i++
+        if (Test-WingetApp $a.F1) {
+            Write-Ok "[$i/$n] $($a.F2) — juba olemas"
+            Add-Ok "$($a.F2) — oli juba olemas"
+            continue
+        }
+        Write-Info "[$i/$n] Paigaldan: $($a.F2) (võib võtta mitu minutit)..."
+        $wingetArgs = @('install', '--id', $a.F1, '-e', '--silent',
+            '--accept-package-agreements', '--accept-source-agreements',
+            '--disable-interactivity')
+        if ($a.F1 -like 'PostgreSQL.*') {
+            # EDB installer: unattended mode with the course-standard password.
+            $wingetArgs += @('--override',
+                "--mode unattended --unattendedmodeui none --superpassword $PgSuperPassword")
+        }
+        & winget @wingetArgs
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok "[$i/$n] $($a.F2) — paigaldatud"
+            Add-Ok $a.F2
+        } else {
+            Write-Err "[$i/$n] $($a.F2) — paigaldamine ebaõnnestus"
+            Add-Fail $a.F2 $a.F3
+        }
+    }
+}
+
+# Create the course database. NEVER touches an existing PostgreSQL setup:
+# if the superuser password is not the course default, this lands in the
+# manual list instead.
+function Invoke-PostgresSetup {
+    $psql = Get-ChildItem 'C:\Program Files\PostgreSQL\*\bin\psql.exe' -ErrorAction SilentlyContinue |
+        Sort-Object FullName -Descending | Select-Object -First 1
+    if (-not $psql) {
+        Add-Fail "PostgreSQL andmebaas '$DbName'" 'docs/install/007-Create-new-database-in-PostgreSQL.pdf'
+        return
+    }
+    $env:PGPASSWORD = $PgSuperPassword
+    $exists = & $psql.FullName -h localhost -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$DbName'" 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn "Ei saanud PostgreSQL serveriga ühendust (kas parool pole '$PgSuperPassword'?). Loo andmebaas käsitsi."
+        Add-Fail "PostgreSQL andmebaas '$DbName' (server olemas, aga ühendus ebaõnnestus)" 'docs/install/007-Create-new-database-in-PostgreSQL.pdf'
+    } elseif ("$exists".Trim() -eq '1') {
+        Write-Ok "Andmebaas '$DbName' — juba olemas"
+        Add-Ok "PostgreSQL andmebaas '$DbName' — oli juba olemas"
+    } else {
+        & $psql.FullName -h localhost -U postgres -c "CREATE DATABASE $DbName" *> $null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok "Andmebaas '$DbName' — loodud"
+            Add-Ok "PostgreSQL andmebaas '$DbName'"
+        } else {
+            Add-Fail "PostgreSQL andmebaas '$DbName'" 'docs/install/007-Create-new-database-in-PostgreSQL.pdf'
+        }
+    }
+    Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+}
+
+# Seed the exported IDE settings (before first launch) and install the
+# course plugins headlessly. Both are best-effort: failures land in the
+# summary with a PDF fallback, they never abort the run.
+function Invoke-IdeaSetup {
+    $ideaExe = Get-ChildItem 'C:\Program Files\JetBrains\*\bin\idea64.exe' -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if (-not $ideaExe) {
+        Add-Fail 'IntelliJ pluginad' 'docs/install/014-IntelliJ-plugin-Rainbow-Brackets.pdf'
+        Add-Fail 'IntelliJ seaded' 'docs/install/009-IntelliJ-seadete-importimine.pdf'
+        return
+    }
+    $installDir = Split-Path (Split-Path $ideaExe.FullName)
+
+    # Settings: the import mechanism is just "unzip into the config dir".
+    # Only seed when the student has no existing configuration.
+    $seeded = $false
+    try {
+        $info = Get-Content (Join-Path $installDir 'product-info.json') -Raw -ErrorAction Stop | ConvertFrom-Json
+        if ($info.dataDirectoryName) {
+            $cfgDir = Join-Path $env:APPDATA "JetBrains\$($info.dataDirectoryName)"
+            if (Test-Path (Join-Path $cfgDir 'options')) {
+                $seeded = $true   # existing config — leave it alone
+            } else {
+                New-Item -ItemType Directory -Path $cfgDir -Force | Out-Null
+                Expand-Archive -Path (Join-Path $script:RepoDir 'docs\IntelliJ\settings.zip') `
+                    -DestinationPath $cfgDir -Force -ErrorAction Stop
+                $seeded = $true
+            }
+        }
+    } catch { $seeded = $false }
+    if ($seeded) {
+        Write-Ok 'IntelliJ seaded — paigas'
+        Add-Ok 'IntelliJ seaded (heap, ML-completion, brauser jm)'
+    } else {
+        Add-Fail 'IntelliJ seadete import' 'docs/install/009-IntelliJ-seadete-importimine.pdf'
+    }
+
+    $plugins = @(Read-ConfigFile (Join-Path $script:RepoDir 'config\intellij-plugins.conf'))
+    if ($plugins.Count -eq 0) { return }
+    Write-Info 'Paigaldan IntelliJ pluginad (see võib võtta hetke)...'
+    $ids = @($plugins | ForEach-Object { $_.F1 })
+    $proc = Start-Process -FilePath $ideaExe.FullName -ArgumentList (@('installPlugins') + $ids) `
+        -Wait -PassThru -WindowStyle Hidden
+    if ($proc.ExitCode -eq 0) {
+        Write-Ok 'IntelliJ pluginad — paigaldatud'
+        Add-Ok "IntelliJ pluginad: $(@($plugins | ForEach-Object { $_.F2 }) -join ', ')"
+    } else {
+        Write-Err 'IntelliJ pluginate paigaldamine ebaõnnestus'
+        foreach ($p in $plugins) { Add-Fail "IntelliJ plugin: $($p.F2)" $p.F3 }
+    }
+}
+
+# --- WSL + Ubuntu ------------------------------------------------------------
+
+function Show-RebootBanner {
+    Write-Host ''
+    Write-Host '##########################################################' -ForegroundColor Red
+    Write-Host '#                                                        #' -ForegroundColor Red
+    Write-Host '#   TAASKÄIVITA ARVUTI KOHE!                             #' -ForegroundColor Red
+    Write-Host '#                                                        #' -ForegroundColor Red
+    Write-Host '#   Pärast taaskäivitust:                                #' -ForegroundColor Red
+    Write-Host '#   1. Ava PowerShell administraatorina                  #' -ForegroundColor Red
+    Write-Host '#   2. Käivita täpselt sama käsk uuesti                  #' -ForegroundColor Red
+    Write-Host '#                                                        #' -ForegroundColor Red
+    Write-Host '#   Paigaldus jätkub sealt, kus see pooleli jäi.         #' -ForegroundColor Red
+    Write-Host '#                                                        #' -ForegroundColor Red
+    Write-Host '##########################################################' -ForegroundColor Red
+}
+
 function Assert-Wsl {
     & wsl.exe --status *> $null
     if ($LASTEXITCODE -eq 0) {
@@ -99,10 +305,8 @@ function Assert-Wsl {
     if ($LASTEXITCODE -ne 0) {
         Fail 'WSL-i paigaldamine ebaõnnestus. Proovi arvuti taaskäivitada ja käivita sama käsk uuesti.'
     }
-    Write-Ok 'WSL on paigaldatud.'
-    Write-Host ''
-    Write-Warn 'Nüüd on vaja arvuti TAASKÄIVITADA.'
-    Write-Warn 'Pärast taaskäivitust ava PowerShell administraatorina ja käivita sama käsk uuesti.'
+    Write-Ok 'WSL on paigaldatud. Windowsi rakendused on juba tehtud — pärast taaskäivitust jätkub ainult Ubuntu osa.'
+    Show-RebootBanner
     Stop-Installer 0
 }
 
@@ -251,27 +455,17 @@ function Resolve-DistroUser([string]$Name) {
 # Passwordless sudo so the installer never has to ask for a password.
 # The user's own password (if any) is left untouched.
 function Grant-PasswordlessSudo([string]$Name, [string]$User) {
-    $script = "printf '%s ALL=(ALL) NOPASSWD:ALL\n' '$User' > /etc/sudoers.d/itcrafters && " +
-        'chmod 0440 /etc/sudoers.d/itcrafters && visudo -cf /etc/sudoers.d/itcrafters >/dev/null'
+    $script = "printf '%s ALL=(ALL) NOPASSWD:ALL\n' '$User' > /etc/sudoers.d/vali-it && " +
+        'chmod 0440 /etc/sudoers.d/vali-it && visudo -cf /etc/sudoers.d/vali-it >/dev/null && ' +
+        'rm -f /etc/sudoers.d/itcrafters'
     Invoke-DistroRoot $Name $script | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail 'Sudo seadistamine ebaõnnestus. Pöördu õpetaja poole.' }
     Write-Ok 'Administraatori õigused on seadistatud.'
 }
 
-# Download the installer from GitHub (on the Windows side, so the distro
-# needs neither git nor curl) and unpack it into the user's home.
+# Unpack the already-downloaded tarball into the user's home inside the distro.
 function Install-InstallerFiles([string]$Name, [string]$User) {
-    $url = "https://github.com/$RepoSlug/archive/refs/heads/$Branch.tar.gz"
-    $tmp = Join-Path $env:TEMP 'itcrafters-installer.tar.gz'
-
-    Write-Info 'Laen alla IT Crafters Installeri...'
-    try {
-        Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
-    } catch {
-        Fail "Allalaadimine ebaõnnestus ($url). Kontrolli internetiühendust ja proovi uuesti."
-    }
-
-    $winPath = $tmp -replace '\\', '/'
+    $winPath = $script:RepoTar -replace '\\', '/'
     $wslTar = (& wsl.exe -d $Name -- wslpath -a $winPath 2>$null | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or -not $wslTar) { Fail 'Allalaaditud faili asukoha teisendamine ebaõnnestus.' }
 
@@ -279,8 +473,7 @@ function Install-InstallerFiles([string]$Name, [string]$User) {
         "tar -xzf '$wslTar' -C ~/$InstallDirName --strip-components=1 && " +
         "chmod +x ~/$InstallDirName/install.sh ~/$InstallDirName/scripts/*.sh"
     & wsl.exe -d $Name -u $User -- bash -c $script
-    if ($LASTEXITCODE -ne 0) { Fail 'Installeri lahtipakkimine ebaõnnestus.' }
-    Write-Ok 'Installer on alla laaditud.'
+    if ($LASTEXITCODE -ne 0) { Fail 'Installeri lahtipakkimine Ubuntusse ebaõnnestus.' }
 }
 
 function Invoke-Installer([string]$Name, [string]$User) {
@@ -288,12 +481,57 @@ function Invoke-Installer([string]$Name, [string]$User) {
     Write-Info 'Käivitan paigalduse Ubuntu sees. See võib võtta 5-15 minutit...'
     Write-Host ''
     & wsl.exe -d $Name -u $User -- bash -c "cd ~/$InstallDirName && ./install.sh --all"
-    if ($LASTEXITCODE -ne 0) {
+    if ($LASTEXITCODE -eq 0) {
+        Add-Ok 'Ubuntu keskkond (kõik kursuse käsurea-tööriistad)'
+    } else {
         Write-Host ''
-        Write-Err 'Paigaldus ei lõppenud edukalt.'
+        Write-Err 'Ubuntu keskkonna paigaldus ei lõppenud edukalt.'
         Write-Warn 'Proovi käivitada sama käsk uuesti — juba tehtud osa ei tehta topelt.'
-        Write-Warn 'Kui viga kordub, saada õpetajale Ubuntu kaustast fail: ~/.itcrafters/install.log'
-        Stop-Installer 1
+        Write-Warn 'Kui viga kordub, saada õpetajale Ubuntu kaustast fail: ~/.vali-it/install.log'
+        Add-Fail 'Ubuntu keskkond (vt ~/.vali-it/install.log)' ''
+    }
+}
+
+# --- summary -----------------------------------------------------------------
+
+function Show-Summary([string]$DistroName) {
+    Write-Host ''
+    Write-Host '==========================================================' -ForegroundColor Cyan
+    Write-Host '  KOKKUVÕTE' -ForegroundColor Cyan
+    Write-Host '==========================================================' -ForegroundColor Cyan
+
+    if ($script:OkList.Count -gt 0) {
+        Write-Host ''
+        Write-Host 'Korras:' -ForegroundColor Green
+        foreach ($x in $script:OkList) { Write-Host "  ✓ $x" -ForegroundColor Green }
+    }
+
+    if ($script:FailList.Count -gt 0) {
+        Write-Host ''
+        Write-Host 'EBAÕNNESTUS — proovi sama käsku uuesti või tee käsitsi:' -ForegroundColor Red
+        foreach ($x in $script:FailList) {
+            Write-Host "  ✗ $($x.Name)" -ForegroundColor Red
+            if ($x.Pdf) { Write-Host "      Juhend: $(Get-DocUrl $x.Pdf)" -ForegroundColor Red }
+        }
+    }
+
+    $manual = @(Read-ConfigFile (Join-Path $script:RepoDir 'config\manual-steps.conf'))
+    if ($manual.Count -gt 0) {
+        Write-Host ''
+        Write-Host 'Tee ise läbi (neid ei saa automatiseerida):' -ForegroundColor Yellow
+        $j = 0
+        foreach ($m in $manual) {
+            $j++
+            Write-Host "  $j. $($m.F1)" -ForegroundColor Yellow
+            if ($m.F2) { Write-Host "      Juhend: $(Get-DocUrl $m.F2)" -ForegroundColor Yellow }
+        }
+    }
+
+    Write-Host ''
+    if ($DistroName) {
+        Write-Info "Ubuntu avamiseks kirjuta terminali:  wsl -d $DistroName"
+        Write-Info 'või otsi Start-menüüst "Ubuntu".'
+        Write-Host ''
     }
 }
 
@@ -301,12 +539,16 @@ function Invoke-Installer([string]$Name, [string]$User) {
 
 Write-Host ''
 Write-Host '==========================================================' -ForegroundColor Cyan
-Write-Host '  IT Crafters Installer' -ForegroundColor Cyan
+Write-Host '  Vali-IT Installer' -ForegroundColor Cyan
 Write-Host '  Arvuti ettevalmistamine programmeerimiskursuseks' -ForegroundColor Cyan
 Write-Host '==========================================================' -ForegroundColor Cyan
 Write-Host ''
 
 Assert-Prerequisites
+Get-RepoFiles
+Install-WindowsApps
+Invoke-PostgresSetup
+Invoke-IdeaSetup
 Assert-Wsl
 $target = Select-TargetDistro
 Assert-Wsl2 $target
@@ -315,11 +557,12 @@ $user = Resolve-DistroUser $target
 Grant-PasswordlessSudo $target $user
 Install-InstallerFiles $target $user
 Invoke-Installer $target $user
+Show-Summary $target
 
-Write-Host ''
+if ($script:FailList.Count -gt 0) {
+    Write-Err 'Osa asju jäi tegemata — vaata punast nimekirja ülal.'
+    Stop-Installer 1
+}
 Write-Host '==========================================================' -ForegroundColor Green
 Write-Ok 'Valmis! Sinu arvuti on kursuseks ette valmistatud.'
-Write-Host ''
-Write-Info "Ubuntu avamiseks kirjuta terminali:  wsl -d $target"
-Write-Info 'või otsi Start-menüüst "Ubuntu".'
 Write-Host '==========================================================' -ForegroundColor Green

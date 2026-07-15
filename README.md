@@ -1,7 +1,8 @@
-# IT Crafters Installer
+# Vali-IT Installer
 
-Paigaldab ja seadistab täieliku Java-arenduskeskkonna Ubuntu jaoks, mis
-töötab WSL2 sees Windows 10/11 peal. Mõeldud programmeerimiskursuse
+Paigaldab ja seadistab täieliku Java-arenduskeskkonna: Windowsi rakendused
+(IntelliJ IDEA, PostgreSQL, Docker Desktop jt) ning Ubuntu WSL2 keskkonna
+koos kõigi käsurea-tööriistadega. Mõeldud programmeerimiskursuse
 õpilastele, kes pole varem Linuxit kasutanud.
 
 ## Õpilasele: kiirstart
@@ -16,31 +17,47 @@ töötab WSL2 sees Windows 10/11 peal. Mõeldud programmeerimiskursuse
 3. Kui skript palub arvuti **taaskäivitada**, tee seda ja käivita pärast
    sama käsk uuesti — paigaldus jätkub sealt, kus see pooleli jäi.
 
-Kõik muu käib automaatselt: WSL2, Ubuntu, kasutaja loomine ja kõigi
-tööriistade paigaldus. Lõpus kuvatakse kontrolli kokkuvõte.
+Lõpus kuvatakse kokkuvõte kolmes osas: mis õnnestus, mis ebaõnnestus
+(koos juhendiga, kuidas käsitsi teha) ja mida pead ise läbi tegema.
 
 ## Mida paigaldatakse?
 
-| Tööriist | Milleks |
-|---|---|
-| OpenJDK 21 | Java arenduskeskkond |
-| git, GitHub CLI | versioonihaldus |
-| Node.js LTS (NVM kaudu) | JavaScripti käivituskeskkond |
-| Claude Code | AI-abiline terminalis |
-| Python 3, pip3 | skriptimine |
-| curl, unzip, tree, jq, ripgrep, poppler-utils | käsurea tööriistad |
-| postgresql-client | andmebaasiklient (psql) |
+**Windowsi poolel** (loend: [`config/windows-apps.conf`](config/windows-apps.conf)):
 
-Täpne nimekiri: [`config/packages.conf`](config/packages.conf) ja
-[`config/ai-tools.conf`](config/ai-tools.conf).
+| Rakendus | Milleks |
+|---|---|
+| Git | versioonihaldus |
+| Node.js LTS | JavaScripti käivituskeskkond |
+| PostgreSQL 17 | andmebaasiserver (+ kursuse andmebaas `vali_it`) |
+| IntelliJ IDEA | arenduskeskkond (+ pluginad ja seaded) |
+| Docker Desktop | konteinerid |
+
+**Ubuntu (WSL2) poolel** (loendid: [`config/packages.conf`](config/packages.conf),
+[`config/ai-tools.conf`](config/ai-tools.conf)):
+
+OpenJDK 21, git, GitHub CLI, NVM + Node.js LTS, Claude Code, Python 3,
+curl, unzip, tree, jq, ripgrep, poppler-utils, postgresql-client.
+
+## Käsitsi sammud pärast paigaldust
+
+Neid ei saa automatiseerida; installer kuvab sama nimekirja kokkuvõttes
+(loend: [`config/manual-steps.conf`](config/manual-steps.conf)):
+
+1. [IntelliJ litsentsi aktiveerimine](docs/install/018-IntelliJ-litsentsi-aktiveerimine.pdf)
+2. [Docker Desktopi esmane käivitamine](docs/install/017-Docker-Desktopi-esmane-kaivitamine.pdf)
+3. [GitHubi konto ja gh sisselogimine](docs/install/019-GitHub-konto-ja-gh-sisselogimine.pdf)
+4. [Claude Code'i esimene käivitamine](docs/install/020-Claude-Code-esimene-kaivitamine.pdf)
+5. [Terminali vaikeshelli määramine](docs/install/012-Terminali-default-shell-i-maaramine-WSL-Ubuntu.pdf) (soovi korral)
+
+Kõik sammsammulised juhendid on kaustas [`docs/install/`](docs/install/).
 
 ## Kasutamine Ubuntu sees
 
-Installer jääb kausta `~/itcrafters-installer` ja seda võib alati
-uuesti käivitada — juba paigaldatud asju ei paigaldata topelt:
+Installer jääb kausta `~/vali-it-installer` ja seda võib alati uuesti
+käivitada — juba paigaldatud asju ei paigaldata topelt:
 
 ```bash
-cd ~/itcrafters-installer
+cd ~/vali-it-installer
 ./install.sh            # interaktiivne menüü
 ./install.sh --all      # paigalda kõik ilma menüüta
 ./install.sh --verify   # ainult kontroll (ei paigalda midagi)
@@ -48,38 +65,38 @@ cd ~/itcrafters-installer
 
 ## Toetatud versioonid
 
-- Ubuntu 22.04 LTS ja 24.04 LTS (WSL2, Windows 10 build 19041+ või Windows 11)
-- Olemasolevat Ubuntut ei kustutata ega lähtestata kunagi: kui 22.04 või
-  24.04 on juba olemas, kasutatakse seda. Kui olemas on mõlemad, saab
-  valida.
+- Windows 10 (build 19041+, uuendatud) või Windows 11
+- Ubuntu 22.04 LTS ja 24.04 LTS (WSL2)
+- Olemasolevat Ubuntut ega Windowsi rakendusi ei kustutata ega uuendata
+  kunagi: mis on olemas, jääb puutumata. Kui olemas on mõlemad Ubuntu
+  versioonid, saab valida; versiooni saab ette anda ka käsitsi:
+  `$env:ITC_DISTRO = 'Ubuntu-22.04'` enne skripti käivitamist.
 
 ## Hooldajale
 
 ### Projekti struktuur
 
 ```
-setup.ps1            Windowsi bootstrap (õpilase sissepääs)
+setup.ps1            Windowsi bootstrap (õpilase sissepääs): winget-rakendused,
+                     PostgreSQL, IntelliJ seadistus, WSL2 + Ubuntu, kokkuvõte
 install.sh           Linuxi peaskript (menüü / --all / --verify)
 scripts/             sammud: 01-system, 02-ai-tools, 03-verify
 lib/                 jagatud moodulid (ui, logger, checks, installer, verify, ...)
-config/              paigaldatavate tööriistade nimekirjad
+config/              paigaldatavate tööriistade/rakenduste/sammude nimekirjad
+docs/install/        õpilase PDF-juhendid (installer viitab neile kokkuvõttes)
+docs/IntelliJ/       settings.zip — IDEA eksporditud seaded
 docs/ARCHITECTURE.md arhitektuur ja disainiotsused
 ```
 
-### Uue apt-paketi lisamine
+### Uue asja lisamine
 
-Lisa üks rida faili `config/packages.conf`:
-
-```
-pakett | kontrollkäsk | eestikeelne kirjeldus
-```
-
-Paigaldus ja kontroll hakkavad automaatselt tööle.
-
-### Uue eriloogikaga tööriista lisamine
-
-1. Lisa rida faili `config/ai-tools.conf` (nt `maven | mvn | Maven`).
-2. Lisa funktsioon `install_tool_maven` faili `lib/installer.sh`.
+- **apt-pakett (Ubuntu):** üks rida faili `config/packages.conf`
+- **eriloogikaga tööriist (Ubuntu):** rida faili `config/ai-tools.conf` +
+  funktsioon `install_tool_<id>` failis `lib/installer.sh`
+- **Windowsi rakendus:** üks rida faili `config/windows-apps.conf`
+  (winget-id + PDF-viide käsitsi varuteeks)
+- **IntelliJ plugin:** üks rida faili `config/intellij-plugins.conf`
+- **käsitsi samm:** üks rida faili `config/manual-steps.conf`
 
 ### Testimine
 
@@ -98,6 +115,8 @@ docker run --rm -v "$PWD:/src:ro" ubuntu:24.04 bash -c '
 CI (GitHub Actions) jooksutab iga muudatuse peale ShellChecki,
 PSScriptAnalyzeri ja smoke-testi Ubuntu 22.04 ja 24.04 konteinerites,
 sealhulgas idempotentsustesti (paigaldus kaks korda järjest).
+Windowsi-poolset (winget, PostgreSQL, IntelliJ) osa CI ei kata — seda
+testitakse päris masinal.
 
 WSL-i eripärade testimiseks päris masinal ("värske õpilase" seis) vt
 [docs/UBUNTU-CLEAN-INSTALL.md](docs/UBUNTU-CLEAN-INSTALL.md) — Ubuntu
@@ -106,8 +125,9 @@ puhas kustutamine ja taaspaigaldus.
 ## Tõrkeotsing
 
 - **Midagi ebaõnnestus?** Käivita sama käsk lihtsalt uuesti — installer
-  jätkab poolelijäänud kohast.
-- **Tehniline logi** on Ubuntu sees failis `~/.itcrafters/install.log`.
+  jätkab poolelijäänud kohast. Kokkuvõtte punane nimekiri viitab iga
+  ebaõnnestunud asja juures PDF-juhendile, millega saab sama teha käsitsi.
+- **Tehniline logi** on Ubuntu sees failis `~/.vali-it/install.log`.
   Vea kordumisel saada see fail õpetajale.
 - **Kontroll ilma paigaldamata:** `./install.sh --verify` ütleb iga
   puuduva tööriista kohta, kuidas seda parandada.

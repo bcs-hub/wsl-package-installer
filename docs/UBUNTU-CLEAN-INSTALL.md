@@ -65,7 +65,7 @@ tööriist ainult Windowsi poolel, mitte distro sees.
 Täieliku kontrolli saab distro seest:
 
 ```bash
-cd ~/itcrafters-installer && ./install.sh --verify
+cd ~/vali-it-installer && ./install.sh --verify
 ```
 
 ## Kiire testitsükkel ühe reana

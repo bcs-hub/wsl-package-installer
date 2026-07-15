@@ -1,0 +1,70 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 964 >>
+stream
+BT
+/F1 16 Tf
+50 800 Td
+(Vali-IT: IntelliJ IDEA litsentsi aktiveerimine) Tj
+/F1 10 Tf
+0 -30 Td
+() Tj
+0 -15 Td
+(*** PLACEHOLDER: asenda ekraanipiltidega juhendiga. Allpool on) Tj
+0 -15 Td
+(*** sammud, mida lõplik juhend peab katma.) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Eeldus: IntelliJ IDEA on paigaldatud \(installer tegi selle automaatselt\).) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(1. Loo JetBrains konto: https://account.jetbrains.com) Tj
+0 -15 Td
+(   Kasuta meiliaadressi, millega saad õpilaslitsentsi taotleda.) Tj
+0 -15 Td
+(2. Taotle tasuta õpilaslitsents: https://www.jetbrains.com/education/) Tj
+0 -15 Td
+(   \(Apply now -> täida vorm -> kinnita meil\).) Tj
+0 -15 Td
+(3. Oota kinnitusmeili ja seo litsents oma kontoga.) Tj
+0 -15 Td
+(4. Käivita IntelliJ IDEA.) Tj
+0 -15 Td
+(5. Vali 'Log in to JetBrains Account' ja logi sisse.) Tj
+0 -15 Td
+(6. Litsents aktiveerub automaatselt.) Tj
+0 -15 Td
+() Tj
+0 -15 Td
+(Kontroll: Help -> Register näitab aktiivset litsentsi.) Tj
+0 -15 Td
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000338 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1353
+%%EOF
