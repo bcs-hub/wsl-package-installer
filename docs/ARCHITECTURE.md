@@ -14,9 +14,11 @@ põhjendused. Kinnitatud 2026-07-15.
 │  KIHT 1: setup.ps1  (Windows)               │
 │  1. Windowsi rakendused (winget):           │
 │     Git, Node, PostgreSQL(+vali_it DB),     │
-│     IntelliJ (+pluginad+seaded), Docker     │
+│     IntelliJ (+pluginad+seaded), Docker,    │
+│     Slack, Zoom                             │
 │  2. WSL2 + Ubuntu, kasutaja, paroolita sudo │
-│  3. Lõpukokkuvõte (✓ / ✗+PDF / käsitsi+PDF) │
+│  3. Kokkuvõte (✓ / ✗+PDF / käsitsi+PDF):    │
+│     ekraanil + HTML-failina töölaual        │
 └─────────────────────────────────────────────┘
     │  wsl -d <distro> -- ./install.sh --all
     ▼
@@ -38,13 +40,16 @@ Linuxi poole testitavaks ilma Windowsita.
 
 | Otsus | Põhjendus |
 |---|---|
-| Docker on skoobist väljas | WSL2 systemd/Docker Desktopi keerukus; tehakse eraldi projektina |
+| Docker: Desktop paigaldatakse winget'iga, docker.io WSL-i sisse EI paigaldata | WSL-i sisese Dockeri systemd-keerukus jääb ära; Docker Desktopi esmakäivitus ja WSL-integratsiooni sisselülitamine on õpilase käsitsi samm (PDF 019) |
 | Installer jookseb tavakasutajana, mitte root'ina | NVM, Node ja Claude Code peavad minema õpilase kodukausta; `sudo` ainult apt-käskudel. `install.sh` keeldub root'ina käivitumast |
 | Paroolita sudo (`/etc/sudoers.d/vali-it`) | Null küsimust paigalduse ajal; WSL-is pole Linuxi parool nagunii turvapiir (`wsl -u root` on Windowsi poolelt alati avatud) |
 | Windowsi rakendused winget'iga, ainult puuduv | Olemasolevat paigaldust (mis tahes versioonis) ei puututa ega uuendata — uuendamine keset kursust on teadlik käsitsi tegevus, mitte kõrvalmõju |
 | PostgreSQL: superuser'i parool `student123`, kursuse DB `vali_it` | Ühesugune seis igal õpilasel; olemasolevat serverit EI puututa (kui parool ei sobi, läheb DB loomine käsitsi-nimekirja koos PDF-iga) |
 | IntelliJ seaded külvatakse enne esmakäivitust | Import ongi lihtsalt zip'i lahtipakkimine config-kausta (`dataDirectoryName` product-info.json-ist); olemasolevat konfiguratsiooni ei kirjutata üle; varutee on PDF 011 |
-| Kolme nimekirjaga kokkuvõte, PDF-viited configist | Õnnestunud / ebaõnnestunud (+PDF käsitsi varutee) / käsitsi sammud (+PDF). Iga ebaõnnestumine on taastatav ilma õpetajata |
+| Kolme nimekirjaga kokkuvõte, PDF-viited configist | Õnnestunud / ebaõnnestunud (+PDF käsitsi varutee) / käsitsi sammud (+PDF). Iga ebaõnnestumine on taastatav ilma õpetajata. Käsitsi-nimekirja lisanduvad ka jooksu ajal avastatud sammud (nt "IntelliJ oli avatud — sulge ja käivita uuesti") |
+| Kokkuvõte salvestatakse ka HTML-ina töölauale (`Vali-IT-kokkuvote.html`) ja avatakse brauseris | Konsool kaob akna sulgemisel ja lingid pole igas konsoolis klõpsatavad; HTML on püsiv, klikitav, õpetajale saadetav ning sisaldab andmebaasi ühendusandmeid |
+| PDF-lingid kujul `...pdf?raw=true` | GitHub serveerib faili otse allalaadimisena — õpilane ei pea blob-lehelt nuppu otsima |
+| IntelliJ tuvastus `idea64.exe` asukoha järgi (Find-IdeaExe) | Toolboxi paigaldusi winget ID järgi ei näe; otsitakse Program Files + LocalAppData + Toolbox, uusim versioon võidab. Pluginaid ei paigaldata, kui IDE parasjagu töötab (headless-paigaldus ebaõnnestuks) — selle asemel käsitsi-samm |
 | Vea korral menüü jätkab | Üks ebaõnnestunud samm raporteeritakse eestikeelselt; sammud jooksevad alamprotsessidena (`run_step`) |
 | Olemasolevat distrot EI kustutata kunagi | Automaatika ei tohi kellegi andmeid hävitada; katkise distro puhul suuname õpetaja juurde |
 | Olemasolev 22.04/24.04 võetakse kasutusele | Sellepärast toetabki installer mõlemat versiooni; mõlema olemasolul küsitakse (24.04 soovitatud), `$env:ITC_DISTRO` valib käsitsi |
@@ -114,14 +119,44 @@ funktsiooni, nii et nad ei saa omavahel eri meelt olla.
 
 ## Laiendusmustrid
 
-1. **Uus apt-pakett** → üks rida `config/packages.conf`-i.
-2. **Uus eriloogikaga tööriist** (Maven, Ollama, AWS CLI, ...) → rida
-   `config/ai-tools.conf`-i + funktsioon `install_tool_<id>`.
-3. **Uus samm** (nt git-i seadistus, SSH-võtmed) → uus õhuke
+1. **Uus apt-pakett (Ubuntu)** → üks rida `config/packages.conf`-i.
+2. **Uus eriloogikaga tööriist (Ubuntu)** (Maven, Ollama, AWS CLI, ...) →
+   rida `config/ai-tools.conf`-i + funktsioon `install_tool_<id>`.
+3. **Uus Linuxi samm** (nt git-i seadistus, SSH-võtmed) → uus õhuke
    `scripts/04-*.sh` + menüürida `install.sh`-is.
+4. **Uus Windowsi rakendus** → üks rida `config/windows-apps.conf`-i
+   (nii lisandusid nt Slack ja Zoom).
+5. **Uus IntelliJ plugin** → üks rida `config/intellij-plugins.conf`-i.
+6. **Uus käsitsi samm** → üks rida `config/manual-steps.conf`-i
+   (+ PDF-juhend kausta `docs/install/`).
 
 Kõik spekis loetletud tulevikuplaanid mahuvad nendesse mustritesse ilma
 refaktoorimiseta.
+
+## Tulevikuplaan: kursuse projekti eellaadimine
+
+Kokku lepitud (2026-07-15), aga veel tegemata — eeldab kursuse repo
+olemasolu. Viimase sammuna setup.ps1-s:
+
+1. **JDK Windowsi poolele** — üks rida `windows-apps.conf`-i (Temurin 21,
+   sama major kui WSL-is); vajalik nii Gradle'ile kui IntelliJ-le.
+2. **Kloonimine** — avalik kursuse repo (kaustad `backend` = Spring Boot
+   Gradle, `frontend` = Vue 3 + Vite) standardsesse kohta, nt
+   `%USERPROFILE%\vali-it\`. Kui kaust on juba olemas, EI puututa
+   (õpilase töö!). Repo URL + sihtkaust lähevad uude confi
+   (`config/course.conf`).
+3. **Sõltuvuste eellaadimine** — `npm ci` frontend'is (node_modules
+   valmis) ja `gradlew.bat dependencies` backend'is (Gradle ise + Maven
+   Centrali sõltuvused cache'i). Eesmärk: klassis ei oota keegi
+   allalaadimisi. Buildi/teste EI jooksutata.
+4. **Servereid EI käivita installer** — õpilane käivitab need ise
+   IntelliJ-s esimeses tunnis; juhend on PDF 023
+   (`023-Kursuse-projekti-kaivitamine-IntelliJ.pdf`, praegu placeholder)
+   ja see läheb siis `manual-steps.conf`-i.
+
+Nõuded kursuse repole: DB-vaba `/hello` endpoint (`http://localhost:8080/hello`),
+`server.address=localhost` application.properties'es (väldib Windowsi
+tulemüüri dialoogi), `package-lock.json` olemas (`npm ci` jaoks).
 
 ## Testimine
 

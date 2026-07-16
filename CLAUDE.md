@@ -57,14 +57,33 @@ directly.
 - All user-visible output goes through `lib/ui.sh` helpers and MUST be Estonian; comments
   and log-file content are English. Technical output goes to `~/.vali-it/install.log`
   via `run_logged`, never to the screen.
-- The Windows side is config-driven too: `config/windows-apps.conf` (winget id | desc |
-  fallback PDF), `config/intellij-plugins.conf`, `config/manual-steps.conf`. setup.ps1
-  extracts the repo tarball on the Windows side to read these. Winget/PostgreSQL/IntelliJ
-  behavior CANNOT be tested from this WSL dev machine — only PSSA + parse checks here;
-  real verification happens on the user's Windows machines.
+- The Windows side is config-driven too: `config/windows-apps.conf` (winget id | check
+  command | desc | fallback PDF), `config/intellij-plugins.conf`, `config/manual-steps.conf`.
+  setup.ps1 extracts the repo tarball on the Windows side to read these. Winget/PostgreSQL/
+  IntelliJ behavior CANNOT be tested from this WSL dev machine — only PSSA + parse checks
+  here; real verification happens on the user's Windows machines.
 - Windows apps run BEFORE the WSL part (a WSL reboot then lands after apps are done).
-  Existing Windows installs are never touched or upgraded; PostgreSQL with a non-default
-  password → the `vali_it` DB creation goes to the manual list instead of failing the run.
+  Existing Windows installs are never touched or upgraded. An app counts as present when
+  winget knows the id OR its check command is on PATH (a differently-packaged Node broke
+  this once); IntelliJ is found via `Find-IdeaExe` path globs (Program Files, LocalAppData,
+  Toolbox — winget can't see Toolbox installs). PostgreSQL superuser password is
+  `student123`, course DB `vali_it`; a server with another password → DB creation goes to
+  the manual list instead of failing the run. Plugins are skipped (→ manual step) while
+  `idea64` is running — headless installPlugins fails then.
+- The summary is three lists (ok / failed+PDF / manual+PDF). Manual steps = static
+  `config/manual-steps.conf` + dynamic `Add-Manual` entries. The same summary is written
+  to the desktop as `Vali-IT-kokkuvote.html` (opened in the browser; includes DB
+  connection details) — the console version dies with the window. Guide links use
+  `?raw=true` so GitHub serves the PDF as a direct download.
+- Student guide PDFs live in `docs/install/` (001-Slack … 023-Kursuse-projekti-kaivitamine;
+  several are generated placeholders awaiting the instructor's real screenshots). When
+  renumbering, update every reference in setup.ps1 + configs + README and verify each
+  referenced file exists on disk.
+- PLANNED, not built (details in docs/ARCHITECTURE.md "Tulevikuplaan"): course-repo
+  preload step — winget JDK (Temurin 21), clone the public course repo (backend Spring
+  Boot + frontend Vue3/Vite) under `%USERPROFILE%\vali-it\`, run `npm ci` +
+  `gradlew dependencies` (no build, no server start — students start servers in IntelliJ,
+  PDF 023). Requires the course repo to exist first.
 - NVM is a shell function, not a binary: `lib/checks.sh::load_nvm` sources it explicitly
   (with `set -u` relaxed — nvm.sh is not set-u clean). Always use `tool_available`, not
   bare `command -v`, when checking tools: it loads NVM first AND rejects `/mnt/*` hits
@@ -73,8 +92,9 @@ directly.
 
 ## Binding Decisions (2026-07-15, override the spec — rationale in docs/ARCHITECTURE.md)
 
-- **Docker is OUT of scope**: no `docker.io`, no Docker group, no docker check in verify.
-  Handled as a separate effort later.
+- **Docker inside WSL is OUT of scope**: no `docker.io`, no Docker group, no docker check
+  in the Linux verify. Docker Desktop IS installed on Windows via winget; its first launch
+  + WSL integration is a manual student step (PDF 019).
 - **Never run as root**: `install.sh` refuses `sudo ./install.sh`; only apt commands use
   sudo. NVM/Node/Claude Code must land in the student's home.
 - **setup.ps1 is a resumable state machine**: every step is "already done? → skip". It

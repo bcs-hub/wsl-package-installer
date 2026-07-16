@@ -19,6 +19,9 @@ koos kõigi käsurea-tööriistadega. Mõeldud programmeerimiskursuse
 
 Lõpus kuvatakse kokkuvõte kolmes osas: mis õnnestus, mis ebaõnnestus
 (koos juhendiga, kuidas käsitsi teha) ja mida pead ise läbi tegema.
+Sama kokkuvõte salvestatakse töölauale failina **Vali-IT-kokkuvote.html**
+(avaneb ise brauseris) — sealt leiad klikitavad juhendid, andmebaasi
+ühendusandmed ja saad selle vajadusel õpetajale saata.
 
 ## Mida paigaldatakse?
 
@@ -39,6 +42,21 @@ Lõpus kuvatakse kokkuvõte kolmes osas: mis õnnestus, mis ebaõnnestus
 
 OpenJDK 21, git, GitHub CLI, NVM + Node.js LTS, Claude Code, Python 3,
 curl, unzip, tree, jq, ripgrep, poppler-utils, postgresql-client.
+
+### Andmebaas
+
+Värskel paigaldusel luuakse kursuse andmebaas järgmiste andmetega
+(needsamad kuvatakse õpilasele HTML-kokkuvõttes):
+
+| | |
+|---|---|
+| Host / port | `localhost:5432` |
+| Andmebaas | `vali_it` |
+| Kasutaja / parool | `postgres` / `student123` |
+| IntelliJ andmeallika URL | `jdbc:postgresql://localhost:5432/vali_it` |
+
+Olemasolevat PostgreSQL-i serverit ei muudeta — sel juhul jääb
+andmebaasi loomine käsitsi sammuks (juhend kokkuvõttes).
 
 ## Käsitsi sammud pärast paigaldust
 
@@ -123,6 +141,18 @@ testitakse päris masinal.
 WSL-i eripärade testimiseks päris masinal ("värske õpilase" seis) vt
 [docs/UBUNTU-CLEAN-INSTALL.md](docs/UBUNTU-CLEAN-INSTALL.md) — Ubuntu
 puhas kustutamine ja taaspaigaldus.
+
+### Plaanis
+
+**Kursuse projekti eellaadimine** (vt täpsemalt
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)): installer kloonib kursuse
+avaliku repo (`backend` = Spring Boot, `frontend` = Vue 3) ja laadib
+sõltuvused ette (`gradlew dependencies`, `npm ci`), et klassis ei ootaks
+keegi allalaadimisi. Servereid installer ei käivita — õpilane teeb seda
+ise IntelliJ-s (juhend:
+[023](docs/install/023-Kursuse-projekti-kaivitamine-IntelliJ.pdf)).
+Eeldab JDK lisamist Windowsi rakenduste nimekirja ja kursuse repo
+valmimist.
 
 ## Tõrkeotsing
 
