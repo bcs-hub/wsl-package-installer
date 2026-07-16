@@ -66,13 +66,14 @@ Kõige lõpus kloonib installer kursuse projekti (loend:
 `%USERPROFILE%\vali-it\` ja laadib sõltuvused ette (frontend: `npm ci`,
 backend: `gradlew dependencies`), et klassis ei ootaks keegi
 allalaadimisi. Servereid installer ei käivita — seda teeb õpilane ise
-IntelliJ-s (juhend
-[023](docs/install/023-Kursuse-projekti-kaivitamine-IntelliJ.pdf)).
-Olemasolevat projektikausta ei puututa kunagi; kokkuvõttes kuvatakse
-kaustatee, mille õpilane IntelliJ-s avab, ja õnnestumisel lisandub
-"Tee ise läbi" nimekirja serverite käivitamise samm (juhend
-[025](docs/install/025-Serverite-kaivitamine-IntelliJ.pdf)). Uue kursuse
-jaoks piisab repo-URL-i muutmisest `course.conf`-is (bank41 → bank42 → ...).
+IntelliJ-s. Olemasolevat projektikausta ei puututa kunagi. Kokkuvõttes
+sõltub tulemus jooksust: kui projekt on kettal, on "Tee ise läbi"
+nimekirjas serverite käivitamise samm koos kaustateega (juhend
+[025](docs/install/025-Serverite-kaivitamine-IntelliJ.pdf)); kui
+allalaadimine ebaõnnestus, viitab punane kirje käsitsi allalaadimise
+juhendile ([023](docs/install/023-Kursuse-projekti-allalaadimine-ja-avamine.pdf))
+koos repo lingiga. Uue kursuse jaoks piisab repo-URL-i muutmisest
+`course.conf`-is (bank41 → bank42 → ...).
 
 ## Käsitsi sammud pärast paigaldust
 
@@ -83,8 +84,10 @@ Neid ei saa automatiseerida; installer kuvab sama nimekirja kokkuvõttes
 2. [Docker Desktopi esmane käivitamine](docs/install/019-Docker-Desktopi-esmane-kaivitamine.pdf)
 3. [GitHubi konto ja gh sisselogimine](docs/install/021-GitHub-konto-ja-gh-sisselogimine.pdf)
 4. [Claude Code'i esimene käivitamine](docs/install/022-Claude-Code-esimene-kaivitamine.pdf)
-5. [Kursuse projekti käivitamine IntelliJ-s](docs/install/023-Kursuse-projekti-kaivitamine-IntelliJ.pdf)
-6. [Terminali vaikeshelli määramine](docs/install/014-Terminali-default-shell-i-maaramine-WSL-Ubuntu.pdf) (soovi korral)
+5. [Terminali vaikeshelli määramine](docs/install/014-Terminali-default-shell-i-maaramine-WSL-Ubuntu.pdf) (soovi korral)
+
+Lisaks lisandub nimekirja [serverite käivitamise samm](docs/install/025-Serverite-kaivitamine-IntelliJ.pdf),
+kui kursuse projekt on arvutis olemas (vt "Kursuse projekt" ülal).
 
 Kõik sammsammulised juhendid on kaustas [`docs/install/`](docs/install/).
 

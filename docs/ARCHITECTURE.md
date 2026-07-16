@@ -53,7 +53,7 @@ Linuxi poole testitavaks ilma Windowsita.
 | PDF-lingid kujul `...pdf?raw=true` | GitHub serveerib faili otse allalaadimisena — õpilane ei pea blob-lehelt nuppu otsima |
 | IntelliJ tuvastus `idea64.exe` asukoha järgi (Find-IdeaExe) | Toolboxi paigaldusi winget ID järgi ei näe; otsitakse Program Files + LocalAppData + Toolbox, uusim versioon võidab. Pluginaid ei paigaldata, kui IDE parasjagu töötab (headless-paigaldus ebaõnnestuks) — selle asemel käsitsi-samm |
 | Temurin JDK 21 winget'iga; MSI override paneb PATH-i JA `JAVA_HOME`-i (`ADDLOCAL=...FeatureJavaHome`) | Kõik kolm tarbijat kaetud: gradlew (PATH/JAVA_HOME), IntelliJ (auto-detect Program Files'ist), õpilase terminal. Olemasolu tuvastab `Find-Jdk21` (Adoptium/Oracle/Microsoft globid, uusim võidab) — confi kontrollkäsk on `-` meelega, sest PATH-il olev vana `java` (nt Java 8) ei tohi JDK 21-na arvesse minna |
-| Kursuse projekt (`course.conf`) kloonitakse ainult puuduvasse kausta; sõltuvuste eellaadimine on best-effort | Olemasolev kaust on õpilase töö ja jääb puutumata (eellaadimine jookseb siiski — kirjutab ainult cache'e, nii toimib ka katkenud jooksu jätkamine). Eellaadimise ebaõnnestumine pole kriitiline: esimene build laeb sõltuvused ise; serverite käivitamine jääb õpilasele IntelliJ-s (PDF 023). Värskelt paigaldatud git/npm/JDK pole jooksva sessiooni PATH-il → `Find-GitExe`/`Find-NpmCmd`/`Find-Jdk21` + explicit `JAVA_HOME` lapsprotsessile |
+| Kursuse projekt (`course.conf`) kloonitakse ainult puuduvasse kausta; sõltuvuste eellaadimine on best-effort | Olemasolev kaust on õpilase töö ja jääb puutumata (eellaadimine jookseb siiski — kirjutab ainult cache'e, nii toimib ka katkenud jooksu jätkamine). Eellaadimise ebaõnnestumine pole kriitiline: esimene build laeb sõltuvused ise; serverite käivitamine jääb õpilasele IntelliJ-s (PDF 025), kloonimise ebaõnnestumisel on varutee käsitsi allalaadimine (PDF 023 + repo link Fail-kirjes). Värskelt paigaldatud git/npm/JDK pole jooksva sessiooni PATH-il → `Find-GitExe`/`Find-NpmCmd`/`Find-Jdk21` + explicit `JAVA_HOME` lapsprotsessile |
 | Vea korral menüü jätkab | Üks ebaõnnestunud samm raporteeritakse eestikeelselt; sammud jooksevad alamprotsessidena (`run_step`) |
 | Olemasolevat distrot EI kustutata kunagi | Automaatika ei tohi kellegi andmeid hävitada; katkise distro puhul suuname õpetaja juurde |
 | Olemasolev 22.04/24.04 võetakse kasutusele | Sellepärast toetabki installer mõlemat versiooni; mõlema olemasolul küsitakse (24.04 soovitatud), `$env:ITC_DISTRO` valib käsitsi |
@@ -161,13 +161,16 @@ bank41 → bank42 → ...); iga rea kohta:
    Iga ebaõnnestumine on best-effort Fail-kirje — esimene build laeb
    sõltuvused ise, installer ei katke.
 4. **Servereid EI käivita installer** — õpilane käivitab need ise
-   IntelliJ-s esimeses tunnis; juhend on PDF 023
-   (`023-Kursuse-projekti-kaivitamine-IntelliJ.pdf`, praegu placeholder)
-   ja see on `manual-steps.conf`-is. Kokkuvõttes kuvatakse projekti
-   kaustatee, mille õpilane IntelliJ-s avab. Kui eellaadimine täielikult
-   õnnestus, lisandub dünaamiline käsitsi-samm "käivita serverid" (PDF
-   025 + kaustatee) — dünaamiline meelega, sest samm on mõttekas ainult
-   siis, kui projekt on päriselt kettal.
+   IntelliJ-s esimeses tunnis. Kokkuvõte sõltub jooksu tulemusest,
+   staatilist manual-steps.conf rida projektil EI ole:
+   - projekt on kettal (kloon õnnestus või kaust oli olemas) →
+     dünaamiline käsitsi-samm "käivita serverid" (PDF 025 +
+     kaustatee) — ka siis, kui eellaadimine kukkus, sest esimene build
+     laeb sõltuvused ise;
+   - kloon ebaõnnestus (või git puudus) → Fail-kirje PDF 023 varuteega
+     (`023-Kursuse-projekti-allalaadimine-ja-avamine.pdf`) + klikitav
+     repo link (Fail-kirjete `Extra` väli, sama linkimine mis
+     manual-sammudel).
 
 Nõuded kursuse repole: DB-vaba `/hello` endpoint (`http://localhost:8080/hello`),
 `server.address=localhost` application.properties'es (väldib Windowsi

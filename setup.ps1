@@ -53,8 +53,8 @@ function Write-Warn([string]$m) { Write-Host "! $m" -ForegroundColor Yellow }
 function Write-Err([string]$m) { Write-Host "✗ $m" -ForegroundColor Red }
 
 function Add-Ok([string]$Name) { $script:OkList += $Name }
-function Add-Fail([string]$Name, [string]$Pdf) {
-    $script:FailList += [pscustomobject]@{ Name = $Name; Pdf = $Pdf }
+function Add-Fail([string]$Name, [string]$Pdf, [string]$Extra = '') {
+    $script:FailList += [pscustomobject]@{ Name = $Name; Pdf = $Pdf; Extra = $Extra }
 }
 function Add-Manual([string]$Name, [string]$Pdf, [string]$Extra = '') {
     $script:ManualList += [pscustomobject]@{ Name = $Name; Pdf = $Pdf; Extra = $Extra }
@@ -604,7 +604,7 @@ function Find-NpmCmd {
 # dependencies (frontend: npm ci, backend: gradlew dependencies) so nobody
 # waits for downloads in class. Best-effort: failures land in the summary
 # and never abort the run — the first build downloads what is missing.
-# Servers are NOT started (the student does that in IntelliJ, PDF 023) and
+# Servers are NOT started (the student does that in IntelliJ, PDF 025) and
 # nothing is built or tested. An existing project folder is the student's
 # work and is never touched; the preload still runs (it only writes caches).
 function Invoke-CourseSetup {
@@ -623,19 +623,22 @@ function Invoke-CourseSetup {
         $desc = if ($r.F3) { $r.F3 } else { $name }
         $ok = $true
 
+        # Failed clone -> the student can fetch the repo manually: the fail
+        # entry carries the how-to guide (PDF 023) plus a clickable repo link.
+        $clonePdf = 'docs/install/023-Kursuse-projekti-allalaadimine-ja-avamine.pdf'
         if (Test-Path $dir) {
             Write-Ok "$desc — kaust on juba olemas, ei puutu ($dir)"
         } else {
             $git = Find-GitExe
             if (-not $git) {
-                Add-Fail "$desc — git puudub. Käivita installer uuesti, kui Git on paigaldatud" ''
+                Add-Fail "$desc — git puudub. Käivita installer uuesti, kui Git on paigaldatud, või laadi projekt ise alla" $clonePdf "Repo: $url"
                 continue
             }
             New-Item -ItemType Directory -Path $parent -Force | Out-Null
             Write-Info "Kloonin: $url"
             & $git clone $url $dir
             if ($LASTEXITCODE -ne 0) {
-                Add-Fail "$desc — allalaadimine ebaõnnestus ($url). Kontrolli internetiühendust ja proovi installerit uuesti" ''
+                Add-Fail "$desc — allalaadimine ebaõnnestus. Kontrolli internetiühendust ja proovi installerit uuesti, või laadi projekt ise alla" $clonePdf "Repo: $url"
                 continue
             }
         }
@@ -702,12 +705,14 @@ function Invoke-CourseSetup {
         if ($ok) {
             Write-Ok "$desc on valmis: $dir"
             Add-Ok "$desc — $dir (ava see kaust IntelliJ-s)"
-            # Dynamic on purpose (not manual-steps.conf): "start the servers"
-            # only makes sense when the project actually landed on disk.
-            Add-Manual "$($desc): käivita serverid IntelliJ-s (backend + frontend)" `
-                'docs/install/025-Serverite-kaivitamine-IntelliJ.pdf' `
-                "Ava IntelliJ-s kaust: $dir"
         }
+        # Reaching this point means the project is on disk (clone failures
+        # 'continue' above) -> the "start the servers" step applies, even
+        # when the preload failed: the first build downloads what is missing.
+        # Dynamic on purpose (not manual-steps.conf), with the concrete path.
+        Add-Manual "$($desc): käivita serverid IntelliJ-s (backend + frontend)" `
+            'docs/install/025-Serverite-kaivitamine-IntelliJ.pdf' `
+            "Ava IntelliJ-s kaust: $dir"
     }
 }
 
@@ -723,6 +728,15 @@ function Get-AllManualSteps {
 
 function ConvertTo-HtmlText([string]$s) {
     return ($s -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;')
+}
+
+# Extra info as HTML: [name](url) becomes a named link; leftover bare URLs
+# (not already inside an href="...") get linkified as-is.
+function ConvertTo-ExtraHtml([string]$s) {
+    $h = ConvertTo-HtmlText $s
+    $h = $h -replace '\[([^\]]+)\]\((https?://[^)]+)\)', '<a href="$2">$1</a>'
+    $h = $h -replace '(?<!")(https?://[^\s<"]+)', '<a href="$1">$1</a>'
+    return ($h -replace "`n", '<br>')
 }
 
 # Write the same summary as a persistent, clickable HTML file on the desktop
@@ -760,6 +774,7 @@ function Write-HtmlSummary([string]$DistroName) {
             foreach ($x in $script:FailList) {
                 $li = "<li class='fail'>✗ $(ConvertTo-HtmlText $x.Name)"
                 if ($x.Pdf) { $li += " — <a href='$(Get-DocUrl $x.Pdf)'>juhend (PDF)</a>" }
+                if ($x.Extra) { $li += "<br><span class='lisainfo'>$(ConvertTo-ExtraHtml $x.Extra)</span>" }
                 $h += "$li</li>"
             }
             $h += '</ul>'
@@ -772,15 +787,7 @@ function Write-HtmlSummary([string]$DistroName) {
             foreach ($m in $manual) {
                 $li = "<li>$(ConvertTo-HtmlText $m.Name)"
                 if ($m.Pdf) { $li += " — <a href='$(Get-DocUrl $m.Pdf)'>juhend (PDF)</a>" }
-                if ($m.Extra) {
-                    # [name](url) becomes a named link; leftover bare URLs
-                    # (not already inside an href="...") get linkified as-is.
-                    $extraHtml = ConvertTo-HtmlText $m.Extra
-                    $extraHtml = $extraHtml -replace '\[([^\]]+)\]\((https?://[^)]+)\)', '<a href="$2">$1</a>'
-                    $extraHtml = $extraHtml -replace '(?<!")(https?://[^\s<"]+)', '<a href="$1">$1</a>'
-                    $extraHtml = $extraHtml -replace "`n", '<br>'
-                    $li += "<br><span class='lisainfo'>$extraHtml</span>"
-                }
+                if ($m.Extra) { $li += "<br><span class='lisainfo'>$(ConvertTo-ExtraHtml $m.Extra)</span>" }
                 $h += "$li</li>"
             }
             $h += '</ol>'
@@ -835,6 +842,13 @@ function Show-Summary([string]$DistroName) {
         foreach ($x in $script:FailList) {
             Write-Host "  ✗ $($x.Name)" -ForegroundColor Red
             if ($x.Pdf) { Write-Host "      Juhend: $(Get-DocUrl $x.Pdf)" -ForegroundColor Red }
+            if ($x.Extra) {
+                foreach ($extraLine in ($x.Extra -split "`n")) {
+                    # The console cannot render named links: [name](url) -> "name: url".
+                    $plain = $extraLine -replace '\[([^\]]+)\]\((https?://[^)]+)\)', '$1: $2'
+                    Write-Host "      $plain" -ForegroundColor Red
+                }
+            }
         }
     }
 

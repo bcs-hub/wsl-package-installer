@@ -92,10 +92,12 @@ directly.
   not count as JDK 21; presence comes from `Find-Jdk21` (Adoptium/Oracle/Microsoft globs).
   Freshly installed tools are not on the running session's PATH → `Find-GitExe`/
   `Find-NpmCmd`/`Find-Jdk21` fallbacks, JAVA_HOME passed explicitly to gradlew. No build,
-  no server start — students start servers in IntelliJ (PDF 023, in manual-steps.conf;
-  plus a dynamic Add-Manual "start the servers" step with PDF 025 and the folder path,
-  added only when the preload fully succeeded). npm/gradle output goes to
-  `%TEMP%\vali-it-course.log`.
+  no server start — students start servers in IntelliJ. The summary is outcome-driven
+  (no static manual-steps.conf line): project on disk → dynamic Add-Manual "start the
+  servers" step (PDF 025 + folder path, even when the preload failed — the first build
+  downloads deps itself); clone failed/git missing → Add-Fail with the manual-download
+  guide (PDF 023) and a clickable repo link (fail entries support an Extra field like
+  manual steps). npm/gradle output goes to `%TEMP%\vali-it-course.log`.
 - NVM is a shell function, not a binary: `lib/checks.sh::load_nvm` sources it explicitly
   (with `set -u` relaxed — nvm.sh is not set-u clean). Always use `tool_available`, not
   bare `command -v`, when checking tools: it loads NVM first AND rejects `/mnt/*` hits
