@@ -4,8 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**Vali-IT Installer** (renamed from "IT Crafters Installer"; repo may later be renamed to
-`vali-it-installer`) — a two-layer installer that sets up a complete Java development
+**Vali-IT Installer** (formerly "IT Crafters Installer"; the GitHub repo is
+`bcs-hub/vali-it-installer`, while this local working folder may still be named
+`wsl-package-installer`) — a two-layer installer that sets up a complete Java development
 environment for beginner students on Windows 10/11 + Ubuntu 22.04/24.04 inside WSL2.
 Layer 1 is `setup.ps1` (Windows bootstrap, the student's only entry point): winget apps
 (Git, Node, PostgreSQL + `vali_it` DB, IntelliJ + plugins + settings seed, Docker Desktop),
@@ -105,7 +106,7 @@ directly.
   Estonian message referring to the instructor, no destructive auto-repair.
 - **No top-level `param()` in setup.ps1** — Windows PowerShell 5.1 cannot parse it through
   `irm | iex` (the student path). Overrides are env vars: `$env:ITC_DISTRO`, `$env:ITC_BRANCH`.
-- **Public GitHub repo: `bcs-hub/wsl-package-installer`**; students fetch `main` directly
+- **Public GitHub repo: `bcs-hub/vali-it-installer`**; students fetch `main` directly
   (`$RepoSlug` in setup.ps1, one-liner URL in README.md). Nothing sensitive in the repo,
   ever.
 

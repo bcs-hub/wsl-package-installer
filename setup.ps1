@@ -1,7 +1,7 @@
 # setup.ps1 - Vali-IT Installer, Windows bootstrap.
 #
 # The student's single entry point. Run in an elevated PowerShell:
-#   irm https://raw.githubusercontent.com/bcs-hub/wsl-package-installer/main/setup.ps1 | iex
+#   irm https://raw.githubusercontent.com/bcs-hub/vali-it-installer/main/setup.ps1 | iex
 #
 # Resumable state machine: every step checks whether it is already done
 # and skips it, so re-running the same command (e.g. after the WSL reboot)
@@ -28,7 +28,7 @@ $Branch = if ($env:ITC_BRANCH) { $env:ITC_BRANCH } else { 'main' }
 # $LASTEXITCODE checks instead; cmdlets that must throw use -ErrorAction Stop.
 $ErrorActionPreference = 'Continue'
 
-$RepoSlug = 'bcs-hub/wsl-package-installer'
+$RepoSlug = 'bcs-hub/vali-it-installer'
 
 $SupportedDistros = @('Ubuntu-24.04', 'Ubuntu-22.04')
 $DefaultDistro = 'Ubuntu-24.04'

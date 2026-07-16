@@ -47,7 +47,7 @@ Administraatori PowerShellis:
 
 ```powershell
 $env:ITC_DISTRO = 'Ubuntu-22.04'
-irm https://raw.githubusercontent.com/bcs-hub/wsl-package-installer/main/setup.ps1 | iex
+irm https://raw.githubusercontent.com/bcs-hub/vali-it-installer/main/setup.ps1 | iex
 ```
 
 `$env:ITC_DISTRO` hoiab ära valikuküsimuse, kui masinas on ka teine

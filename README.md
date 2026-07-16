@@ -11,7 +11,7 @@ koos kõigi käsurea-tööriistadega. Mõeldud programmeerimiskursuse
 2. Kleebi terminali see rida ja vajuta Enter:
 
    ```powershell
-   irm https://raw.githubusercontent.com/bcs-hub/wsl-package-installer/main/setup.ps1 | iex
+   irm https://raw.githubusercontent.com/bcs-hub/vali-it-installer/main/setup.ps1 | iex
    ```
 
 3. Kui skript palub arvuti **taaskäivitada**, tee seda ja käivita pärast

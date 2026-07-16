@@ -8,7 +8,7 @@ põhjendused. Kinnitatud 2026-07-15.
 ```
   ÕPILANE
     │  PowerShell (admin), üks rida:
-    │  irm https://raw.githubusercontent.com/bcs-hub/wsl-package-installer/main/setup.ps1 | iex
+    │  irm https://raw.githubusercontent.com/bcs-hub/vali-it-installer/main/setup.ps1 | iex
     ▼
 ┌─────────────────────────────────────────────┐
 │  KIHT 1: setup.ps1  (Windows)               │
