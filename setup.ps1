@@ -302,7 +302,7 @@ function Invoke-IdeaSetup {
         'existing' {
             Write-Warn 'IntelliJ-l on juba oma seadistus — installer ei kirjuta seda üle. Impordi kursuse seaded ise (juhis kokkuvõttes).'
             Add-Manual 'IntelliJ seaded: sinu IntelliJ-l on juba oma seadistus, mida installer üle ei kirjuta — impordi kursuse seaded ise' $settingsPdf `
-                "Seadete fail: $(Get-RawUrl 'docs/IntelliJ/settings.zip') — salvesta TERVE zip ja ÄRA paki seda lahti (IDEA impordib zip-faili tervikuna)"
+                "[Seadete fail]($(Get-RawUrl 'docs/IntelliJ/settings.zip')) — salvesta TERVE zip ja ÄRA paki seda lahti (IDEA impordib zip-faili tervikuna)"
         }
         default {
             Add-Fail 'IntelliJ seadete import' $settingsPdf
@@ -315,7 +315,7 @@ function Invoke-IdeaSetup {
     # Headless plugin install cannot work while the IDE itself is running.
     if (Get-Process -Name idea64 -ErrorAction SilentlyContinue) {
         $pluginNames = @($plugins | ForEach-Object { $_.F2 }) -join ', '
-        $guideLines = @($plugins | ForEach-Object { "$($_.F2): $(Get-DocUrl $_.F3)" })
+        $guideLines = @($plugins | ForEach-Object { "[$($_.F2)]($(Get-DocUrl $_.F3))" })
         Write-Warn 'IntelliJ on praegu avatud — pluginaid ei saa paigaldada, kui IntelliJ töötab.'
         Add-Manual "IntelliJ pluginad ($pluginNames): IntelliJ oli paigalduse ajal avatud. Sulge IntelliJ ja käivita installer uuesti — siis paigalduvad pluginad automaatselt" `
             '' `
@@ -613,7 +613,11 @@ function Write-HtmlSummary([string]$DistroName) {
                 $li = "<li>$(ConvertTo-HtmlText $m.Name)"
                 if ($m.Pdf) { $li += " — <a href='$(Get-DocUrl $m.Pdf)'>juhend (PDF)</a>" }
                 if ($m.Extra) {
-                    $extraHtml = (ConvertTo-HtmlText $m.Extra) -replace '(https?://\S+)', '<a href="$1">$1</a>'
+                    # [name](url) becomes a named link; leftover bare URLs
+                    # (not already inside an href="...") get linkified as-is.
+                    $extraHtml = ConvertTo-HtmlText $m.Extra
+                    $extraHtml = $extraHtml -replace '\[([^\]]+)\]\((https?://[^)]+)\)', '<a href="$2">$1</a>'
+                    $extraHtml = $extraHtml -replace '(?<!")(https?://[^\s<"]+)', '<a href="$1">$1</a>'
                     $extraHtml = $extraHtml -replace "`n", '<br>'
                     $li += "<br><span class='lisainfo'>$extraHtml</span>"
                 }
@@ -689,7 +693,9 @@ function Show-Summary([string]$DistroName) {
             if ($m.Pdf) { Write-Host "      Juhend: $(Get-DocUrl $m.Pdf)" -ForegroundColor Yellow }
             if ($m.Extra) {
                 foreach ($extraLine in ($m.Extra -split "`n")) {
-                    Write-Host "      $extraLine" -ForegroundColor Yellow
+                    # The console cannot render named links: [name](url) -> "name: url".
+                    $plain = $extraLine -replace '\[([^\]]+)\]\((https?://[^)]+)\)', '$1: $2'
+                    Write-Host "      $plain" -ForegroundColor Yellow
                 }
             }
         }
