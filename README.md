@@ -174,7 +174,9 @@ Eemaldaja võtab vaikimisi maha ainult manifestis oleva:
 irm https://raw.githubusercontent.com/bcs-hub/vali-it-installer/main/uninstall.ps1 | iex
 ```
 
-Enne kustutamist näidatakse nimekirja ja küsitakse kinnitust (`JAH`).
+Enne kustutamist näidatakse nimekirja ja küsitakse kinnitust (`jah`,
+suur- või väiketähtedega). Kursuse projektikausta kohta küsitakse eraldi —
+vaikimisi (Enter) jääb see alles, sest seal võib olla õpilase oma töö.
 Valikud keskkonnamuutujatega enne käivitamist:
 
 ```powershell

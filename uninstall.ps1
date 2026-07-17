@@ -384,8 +384,23 @@ Write-Host '  - Installeri jäljed: töölaua kokkuvõte, ajutised failid, manif
 Write-Host ''
 
 if (-not $AutoYes) {
-    $answer = Read-Host 'Kas oled kindel? Kirjuta JAH ja vajuta Enter'
-    if ($answer -cne 'JAH') {
+    # Stray keystrokes from earlier must not answer the prompts.
+    try { $Host.UI.RawUI.FlushInputBuffer() } catch { }
+
+    # The course folder is the only place that can hold the student's own
+    # work — it gets its own question, and the default is to keep it.
+    # ('-ne' is case-insensitive on purpose: jah/Jah/JAH all count.)
+    if ($planCourse.Count -gt 0) {
+        Write-Host ''
+        $a = Read-Host 'Kas kustutada ka kursuse projektikaust? Kirjuta "jah" kustutamiseks või vajuta lihtsalt Enter, et kaust alles jätta'
+        if ($a -ne 'jah') {
+            Write-Info 'Kursuse projektikaust jääb alles.'
+            $planCourse = @()
+        }
+    }
+
+    $answer = Read-Host 'Kas oled kindel? Kirjuta "jah" ja vajuta Enter'
+    if ($answer -ne 'jah') {
         Write-Info 'Katkestatud — midagi ei eemaldatud.'
         Stop-Uninstaller 0
     }
