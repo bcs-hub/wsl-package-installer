@@ -211,9 +211,10 @@ function Remove-App([string]$Id, [string]$Label, [bool]$FromState) {
         return
     }
     Write-Info "Eemaldan: $Label ..."
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
     & winget uninstall --id $Id -e --silent --disable-interactivity --accept-source-agreements
     if ($LASTEXITCODE -eq 0) {
-        Add-Done "$Label — eemaldatud"
+        Add-Done "$Label — eemaldatud ($(Format-Duration $sw.Elapsed))"
         if ($FromState) { Set-Removed 'app' $Id }
     } else {
         Add-Failed "$Label — eemaldamine ebaõnnestus (proovi Windowsi Seaded → Rakendused)"
@@ -265,9 +266,10 @@ function Remove-Distro([string]$Name) {
         return
     }
     Write-Info "Eemaldan Ubuntu distro $Name (kõik failid selles kustuvad)..."
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
     & wsl.exe --unregister $Name *> $null
     if ($LASTEXITCODE -eq 0) {
-        Add-Done "Ubuntu ($Name) — eemaldatud"
+        Add-Done "Ubuntu ($Name) — eemaldatud ($(Format-Duration $sw.Elapsed))"
         Set-Removed 'distro' $Name
     } else {
         Add-Failed "Ubuntu ($Name) eemaldamine ebaõnnestus"

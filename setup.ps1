@@ -445,11 +445,13 @@ function Invoke-PostgresSetup {
             Add-Ok "PostgreSQL andmebaas '$DbName' — oli juba olemas"
         }
     } else {
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
         & $psql.FullName -h localhost -U postgres -c "CREATE DATABASE $DbName" *> $null
         if ($LASTEXITCODE -eq 0) {
-            Write-Ok "Andmebaas '$DbName' — loodud"
-            Add-Ok "PostgreSQL andmebaas '$DbName'"
-            Add-StateEntry 'db' $DbName
+            $dur = Format-Duration $sw.Elapsed
+            Write-Ok "Andmebaas '$DbName' — loodud ($dur)"
+            Add-Ok "PostgreSQL andmebaas '$DbName' ($dur)"
+            Add-StateEntry 'db' $DbName $dur
         } else {
             Add-Fail "PostgreSQL andmebaas '$DbName'" 'docs/install/009-Create-new-database-in-PostgreSQL.pdf'
         }
@@ -492,6 +494,7 @@ function Invoke-IdeaSetup {
     $settingsPdf = 'docs/install/011-IntelliJ-seadete-importimine.pdf'
     $outcome = 'failed'
     $cfgDir = ''
+    $swSettings = [System.Diagnostics.Stopwatch]::StartNew()
     try {
         $info = Get-Content (Join-Path $installDir 'product-info.json') -Raw -ErrorAction Stop | ConvertFrom-Json
         if ($info.dataDirectoryName) {
@@ -516,8 +519,9 @@ function Invoke-IdeaSetup {
     } catch { $outcome = 'failed' }
     switch ($outcome) {
         'seeded' {
-            Write-Ok 'IntelliJ seaded — paigaldatud'
-            Add-Ok 'IntelliJ seaded (heap, ML-completion, brauser jm)'
+            $dur = Format-Duration $swSettings.Elapsed
+            Write-Ok "IntelliJ seaded — paigaldatud ($dur)"
+            Add-Ok "IntelliJ seaded (heap, ML-completion, brauser jm) ($dur)"
             Add-StateEntry 'idea-settings' $cfgDir
         }
         'seeded-earlier' {
@@ -578,7 +582,7 @@ function Invoke-IdeaSetup {
     Write-Host ("`r$label ... $dur  ") -ForegroundColor Cyan
     if ($proc.ExitCode -eq 0) {
         Write-Ok "IntelliJ pluginad — paigaldatud ($dur)"
-        Add-Ok "IntelliJ pluginad: $pluginNames"
+        Add-Ok "IntelliJ pluginad: $pluginNames ($dur)"
         Add-StateEntry 'idea-plugins' $pluginSet $dur
     } else {
         Write-Err 'IntelliJ pluginate paigaldamine ebaõnnestus'
@@ -635,6 +639,7 @@ function Get-DistroUbuntuVersion([string]$Name) {
 
 function Install-Distro([string]$Name) {
     Write-Info "Paigaldan distro $Name (see võib võtta mitu minutit)..."
+    $swDistro = [System.Diagnostics.Stopwatch]::StartNew()
     # Out-Host is load-bearing: this runs inside Select-TargetDistro, whose
     # return value the caller captures — without it the wsl.exe progress
     # text would join the returned distro name (which once produced a bogus
@@ -657,8 +662,9 @@ function Install-Distro([string]$Name) {
         Stop-WslPart ("Ubuntu ($Name) käivitamine ebaõnnestus. Taaskäivita arvuti ja käivita sama käsk uuesti — " +
             'paigaldus jätkub poolelijäänud kohast. Kui ka pärast taaskäivitust ei õnnestu, paigalda Ubuntu käsitsi juhendi järgi.') $WslGuidePdf
     }
-    Add-StateEntry 'distro' $Name
-    Write-Ok "Distro $Name on paigaldatud."
+    $dur = Format-Duration $swDistro.Elapsed
+    Add-StateEntry 'distro' $Name $dur
+    Write-Ok "Distro $Name on paigaldatud ($dur)."
 }
 
 # Decide which distro to use, installing one if needed. Never touches
@@ -798,9 +804,12 @@ function Invoke-Installer([string]$Name, [string]$User) {
     Write-Host ''
     Write-Info 'Käivitan paigalduse Ubuntu sees. See võib võtta 5-15 minutit...'
     Write-Host ''
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
     & wsl.exe -d $Name -u $User -- bash -c "cd ~/$InstallDirName && ./install.sh --all"
     if ($LASTEXITCODE -eq 0) {
-        Add-Ok 'Ubuntu keskkond (kõik kursuse käsurea-tööriistad)'
+        $dur = Format-Duration $sw.Elapsed
+        Write-Ok "Ubuntu keskkond on valmis ($dur)."
+        Add-Ok "Ubuntu keskkond (kõik kursuse käsurea-tööriistad) ($dur)"
     } else {
         Write-Host ''
         Write-Err 'Ubuntu keskkonna paigaldus ei lõppenud edukalt.'
@@ -846,6 +855,7 @@ function Invoke-CourseSetup {
     Write-Info 'Laen alla kursuse projekti ja selle sõltuvused...'
 
     foreach ($r in $repos) {
+        $swRepo = [System.Diagnostics.Stopwatch]::StartNew()
         $url = $r.F1
         $name = ($url.TrimEnd('/') -split '/')[-1] -replace '\.git$', ''
         $parent = Join-Path $env:USERPROFILE $r.F2
@@ -927,8 +937,9 @@ function Invoke-CourseSetup {
         }
 
         if ($ok) {
-            Write-Ok "$desc on valmis: $dir"
-            Add-Ok "$desc — $dir (ava see kaust IntelliJ-s)"
+            $dur = Format-Duration $swRepo.Elapsed
+            Write-Ok "$desc on valmis: $dir ($dur)"
+            Add-Ok "$desc — $dir (ava see kaust IntelliJ-s) ($dur)"
         }
         # Reaching this point means the project is on disk (clone failures
         # 'continue' above) -> the "start the servers" step applies, even
