@@ -56,6 +56,29 @@ $script:WslAbort = $null   # set by Stop-WslPart, read by the main-flow catch
 $env:WSL_UTF8 = '1'
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
 
+# A single mouse click into a classic console window starts a QuickEdit text
+# selection that FREEZES all output until a key is pressed — the install
+# keeps running but looks hung, and the unfreezing keypress lands in the
+# input buffer. Turn QuickEdit off for this console (best-effort; only
+# affects this window).
+try {
+    if (-not ('ValiIt.ConsoleMode' -as [type])) {
+        Add-Type -Namespace 'ValiIt' -Name 'ConsoleMode' -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int nStdHandle);
+[DllImport("kernel32.dll")] public static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+[DllImport("kernel32.dll")] public static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+'@
+    }
+    $cm = 'ValiIt.ConsoleMode' -as [type]
+    $hIn = $cm::GetStdHandle(-10)   # STD_INPUT_HANDLE
+    $mode = [uint32]0
+    if ($cm::GetConsoleMode($hIn, [ref]$mode)) {
+        # Clear ENABLE_QUICK_EDIT_MODE (0x40); ENABLE_EXTENDED_FLAGS (0x80)
+        # must be set for the QuickEdit bit to be honoured.
+        [void]$cm::SetConsoleMode($hIn, ($mode -band (-bnot [uint32]0x40)) -bor [uint32]0x80)
+    }
+} catch { }
+
 # Everything on screen also goes to a log file, so an error can still be
 # read after the window has closed (best-effort — a failed transcript must
 # not stop the install).
