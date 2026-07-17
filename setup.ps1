@@ -129,6 +129,20 @@ function Format-Duration([TimeSpan]$t) {
     return "$([math]::Floor($s / 3600))h $([math]::Floor(($s % 3600) / 60))m"
 }
 
+# Ticker updates go straight to the console, BYPASSING the transcript on
+# purpose: Write-Host would turn a once-a-second ticking line into hundreds
+# of near-identical log lines. Only the final line (Write-Host) is logged.
+# NB: the bypass holds in Windows PowerShell 5.1 (the student path — its
+# transcription cannot see direct .NET console writes); PowerShell 7
+# transcribes these too, so a pwsh run still gets the verbose log. Harmless.
+function Write-Tick([string]$Text) {
+    try {
+        [Console]::ForegroundColor = [ConsoleColor]::Cyan
+        [Console]::Write("`r$Text")
+        [Console]::ResetColor()
+    } catch { }
+}
+
 # Run a slow external command in a background job while ticking the elapsed
 # time on one console line — a silent minutes-long step looks hung, and the
 # ticking seconds are the student's proof of life. The command's own output
@@ -146,11 +160,12 @@ function Invoke-TickedJob([string]$Label, [string]$Exe, [object[]]$CmdArgs,
     } -ArgumentList @($Exe, $CmdArgs, $Dir, $JavaHome)
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     while ($j.State -eq 'Running') {
-        Write-Host ("`r$Label ... " + (Format-Duration $sw.Elapsed) + '  ') -NoNewline -ForegroundColor Cyan
+        Write-Tick ("$Label ... " + (Format-Duration $sw.Elapsed) + '  ')
         Start-Sleep -Seconds 1
     }
     $dur = Format-Duration $sw.Elapsed
-    Write-Host ("`r$Label ... $dur  ") -ForegroundColor Cyan
+    Write-Tick "`r"
+    Write-Host ("$Label ... $dur  ") -ForegroundColor Cyan
     $res = @(Receive-Job $j 2>$null) |
         Where-Object { $_ -and $_.PSObject.Properties['Code'] } | Select-Object -Last 1
     Remove-Job $j -Force -ErrorAction SilentlyContinue
@@ -575,11 +590,12 @@ function Invoke-IdeaSetup {
     }
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     while (-not $proc.HasExited) {
-        Write-Host ("`r$label ... " + (Format-Duration $sw.Elapsed) + '  ') -NoNewline -ForegroundColor Cyan
+        Write-Tick ("$label ... " + (Format-Duration $sw.Elapsed) + '  ')
         Start-Sleep -Seconds 1
     }
     $dur = Format-Duration $sw.Elapsed
-    Write-Host ("`r$label ... $dur  ") -ForegroundColor Cyan
+    Write-Tick "`r"
+    Write-Host ("$label ... $dur  ") -ForegroundColor Cyan
     if ($proc.ExitCode -eq 0) {
         Write-Ok "IntelliJ pluginad — paigaldatud ($dur)"
         Add-Ok "IntelliJ pluginad: $pluginNames ($dur)"
