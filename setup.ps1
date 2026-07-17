@@ -1006,6 +1006,24 @@ function Write-HtmlSummary([string]$DistroName) {
         if ($DistroName) {
             $h += "<p>Ubuntu avamiseks kirjuta terminali: <code>wsl -d $DistroName</code> või otsi Start-menüüst Ubuntu.</p>"
         }
+
+        # Log paths at the end, mirroring the uninstaller's summary: when
+        # something failed, these are what the instructor needs to see.
+        $h += '<h2>Tehnilised logid</h2>'
+        $h += '<p>Kui midagi ebaõnnestus, saada õpetajale koos selle kokkuvõttega ka need failid (ava rada Exploreri aadressiribal):</p>'
+        $h += '<table>'
+        $courseLog = Join-Path $env:TEMP 'vali-it-course.log'
+        $h += "<tr><td><b>Kogu paigalduse väljund</b></td><td><code>$(ConvertTo-HtmlText $SetupLogFile)</code></td></tr>"
+        if (Test-Path $WingetLogFile) {
+            $h += "<tr><td><b>Rakenduste paigaldus (winget)</b></td><td><code>$(ConvertTo-HtmlText $WingetLogFile)</code></td></tr>"
+        }
+        if (Test-Path $courseLog) {
+            $h += "<tr><td><b>Kursuse projekti eellaadimine</b></td><td><code>$(ConvertTo-HtmlText $courseLog)</code></td></tr>"
+        }
+        if ($DistroName) {
+            $h += '<tr><td><b>Ubuntu sees</b></td><td><code>~/.vali-it/install.log</code></td></tr>'
+        }
+        $h += '</table>'
         $h += '</body></html>'
 
         ($h -join "`n") | Out-File -FilePath $path -Encoding UTF8
