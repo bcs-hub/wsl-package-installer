@@ -60,9 +60,20 @@ try {
     $hIn = $cm::GetStdHandle(-10)   # STD_INPUT_HANDLE
     $mode = [uint32]0
     if ($cm::GetConsoleMode($hIn, [ref]$mode)) {
+        $script:OrigConsoleMode = $mode
         [void]$cm::SetConsoleMode($hIn, ($mode -band (-bnot [uint32]0x40)) -bor [uint32]0x80)
     }
 } catch { }
+
+function Restore-ConsoleMode {
+    try {
+        if ($null -ne $script:OrigConsoleMode) {
+            $cm = 'ValiIt.ConsoleMode' -as [type]
+            [void]$cm::SetConsoleMode($cm::GetStdHandle(-10), [uint32]$script:OrigConsoleMode)
+            $script:OrigConsoleMode = $null
+        }
+    } catch { }
+}
 
 # Everything on screen also goes to a log file, so an error can still be
 # read after the window has closed (best-effort — a failed transcript must
@@ -113,9 +124,11 @@ function Stop-Uninstaller([int]$Code) {
         Write-Info "Kogu väljund on salvestatud faili: $LogFile"
         Write-Host ''
     }
-    # Keystrokes pressed while the removals ran sit in the console input
-    # buffer and would answer this Read-Host instantly, closing the window
-    # before anything can be read — flush them first.
+    # Restore QuickEdit before the pause so select/copy works again, then
+    # flush keystrokes pressed while the removals ran — they would answer
+    # this Read-Host instantly, closing the window before anything can be
+    # read.
+    Restore-ConsoleMode
     try { $Host.UI.RawUI.FlushInputBuffer() } catch { }
     Read-Host 'Vajuta Enter, et lõpetada (aken läheb kinni)' | Out-Null
     exit $Code

@@ -79,10 +79,22 @@ try {
     $mode = [uint32]0
     if ($cm::GetConsoleMode($hIn, [ref]$mode)) {
         # Clear ENABLE_QUICK_EDIT_MODE (0x40); ENABLE_EXTENDED_FLAGS (0x80)
-        # must be set for the QuickEdit bit to be honoured.
+        # must be set for the QuickEdit bit to be honoured. The original
+        # mode is restored at exit so select/copy works again afterwards.
+        $script:OrigConsoleMode = $mode
         [void]$cm::SetConsoleMode($hIn, ($mode -band (-bnot [uint32]0x40)) -bor [uint32]0x80)
     }
 } catch { }
+
+function Restore-ConsoleMode {
+    try {
+        if ($null -ne $script:OrigConsoleMode) {
+            $cm = 'ValiIt.ConsoleMode' -as [type]
+            [void]$cm::SetConsoleMode($cm::GetStdHandle(-10), [uint32]$script:OrigConsoleMode)
+            $script:OrigConsoleMode = $null
+        }
+    } catch { }
+}
 
 # Everything on screen also goes to a log file, so an error can still be
 # read after the window has closed (best-effort — a failed transcript must
@@ -173,6 +185,9 @@ function Get-RawUrl([string]$Path) { "https://raw.githubusercontent.com/$RepoSlu
 function Stop-Installer([int]$Code) {
     Write-Host ''
     Stop-SetupLog
+    # Restore QuickEdit BEFORE the pause, so the student can select/copy
+    # text from the window while it is still open.
+    Restore-ConsoleMode
     # Keystrokes pressed during the long installs sit in the console input
     # buffer and would answer this Read-Host instantly, closing the window
     # before anything can be read — flush them first.
@@ -1174,4 +1189,5 @@ if ($script:FailList.Count -gt 0) {
 Write-Host '==========================================================' -ForegroundColor Green
 Write-Ok 'Valmis! Sinu arvuti on kursuseks ette valmistatud.'
 Stop-SetupLog
+Restore-ConsoleMode
 Write-Host '==========================================================' -ForegroundColor Green
