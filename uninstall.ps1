@@ -36,6 +36,20 @@ $PgSuperPassword = 'student123'
 $StateDir = Join-Path $env:LOCALAPPDATA 'vali-it'
 $StateFile = Join-Path $StateDir 'installed.txt'
 
+# Friendly names for the manifest's bare winget ids, so the plan reads
+# "Slack" not "SlackTechnologies.Slack". Purge mode overrides these from
+# the live config; this map covers the manifest-only (offline) path.
+$AppNames = @{
+    'Git.Git'                        = 'Git (Windows)'
+    'OpenJS.NodeJS.LTS'              = 'Node.js LTS (Windows)'
+    'PostgreSQL.PostgreSQL.17'       = 'PostgreSQL 17 andmebaasiserver'
+    'EclipseAdoptium.Temurin.21.JDK' = 'Java 21 (Temurin JDK)'
+    'JetBrains.IntelliJIDEA'         = 'IntelliJ IDEA'
+    'Docker.DockerDesktop'           = 'Docker Desktop'
+    'SlackTechnologies.Slack'        = 'Slack'
+    'Zoom.Zoom'                      = 'Zoom'
+}
+
 # Keys 'kind|value' of manifest entries whose removal succeeded; the state
 # file is rewritten at the end with only the remaining (failed) entries.
 $script:RemovedKeys = @()
@@ -203,6 +217,16 @@ function Set-Removed([string]$Kind, [string]$Value) {
     $script:RemovedKeys += "$Kind|$Value"
 }
 
+# Run one winget uninstall attempt; its (often very long, e.g. Docker's
+# whole install log) output goes to $LogFile, not the screen. Returns the
+# exit code.
+function Invoke-WingetUninstall([string]$Id, [string[]]$Extra) {
+    $wingetArgs = @('uninstall', '--id', $Id, '-e', '--silent',
+        '--disable-interactivity', '--accept-source-agreements') + $Extra
+    & winget @wingetArgs *>> $LogFile
+    return $LASTEXITCODE
+}
+
 function Remove-App([string]$Id, [string]$Label, [bool]$FromState) {
     & winget list --id $Id -e --accept-source-agreements *> $null
     if ($LASTEXITCODE -ne 0) {
@@ -210,14 +234,28 @@ function Remove-App([string]$Id, [string]$Label, [bool]$FromState) {
         if ($FromState) { Set-Removed 'app' $Id }
         return
     }
-    Write-Info "Eemaldan: $Label ..."
+    # Docker Desktop's uninstaller can sit for many minutes; warn so a
+    # patient student does not think it hung.
+    if ($Id -like 'Docker.*') {
+        Write-Info "Eemaldan: $Label ... (võib võtta mitu minutit, palun oota)"
+    } else {
+        Write-Info "Eemaldan: $Label ..."
+    }
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    & winget uninstall --id $Id -e --silent --disable-interactivity --accept-source-agreements
-    if ($LASTEXITCODE -eq 0) {
+    $rc = Invoke-WingetUninstall $Id @()
+    # User-scope apps (Slack, Zoom) cannot be uninstalled from an elevated
+    # winget — exit 0x8a15002b / the "installed for user scope cannot be
+    # uninstalled when running with administrator privileges" message.
+    # Retry once scoped to the user before giving up.
+    if ($rc -ne 0) {
+        $rc = Invoke-WingetUninstall $Id @('--scope', 'user')
+    }
+    if ($rc -eq 0) {
         Add-Done "$Label — eemaldatud ($(Format-Duration $sw.Elapsed))"
         if ($FromState) { Set-Removed 'app' $Id }
     } else {
-        Add-Failed "$Label — eemaldamine ebaõnnestus (proovi Windowsi Seaded → Rakendused)"
+        Add-Failed ("$Label — eemaldamine ebaõnnestus. Eemalda käsitsi: ava Start → Seaded → " +
+            'Rakendused → Installitud rakendused, otsi rakendus ja vali Eemalda.')
     }
 }
 
@@ -365,7 +403,10 @@ if ($entries.Count -eq 0 -and -not $Purge) {
 # full test-machine reset from the repo config (apps, every supported
 # distro on the machine, the course folder, leftover config/data dirs).
 $stateApps = @($entries | Where-Object { $_.Kind -eq 'app' } | ForEach-Object { $_.Value })
-$planApps = @($stateApps | ForEach-Object { [pscustomobject]@{ Id = $_; Label = $_; FromState = $true } })
+$planApps = @($stateApps | ForEach-Object {
+        $lbl = if ($AppNames.ContainsKey($_)) { $AppNames[$_] } else { $_ }
+        [pscustomobject]@{ Id = $_; Label = $lbl; FromState = $true }
+    })
 $planDb = ($Purge -or @($entries | Where-Object { $_.Kind -eq 'db' }).Count -gt 0)
 $planSettings = @($entries | Where-Object { $_.Kind -eq 'idea-settings' } | ForEach-Object { $_.Value })
 $planCourse = @($entries | Where-Object { $_.Kind -eq 'course' } | ForEach-Object { $_.Value })
