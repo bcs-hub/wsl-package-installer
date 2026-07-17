@@ -966,6 +966,8 @@ function Write-HtmlSummary([string]$DistroName) {
         $h += '.ok{color:#1a7f37} .fail{color:#b30000} .manual{color:#9a6700}'
         $h += 'li{margin:.4em 0} .lisainfo{font-size:.92em;color:#444} code{background:#f2f2f2;padding:2px 5px}'
         $h += '.teade{color:#b30000;font-weight:600;border:1px solid #b30000;border-radius:6px;padding:.6em .8em;background:#fff5f5}'
+        $h += '.vihje{color:#9a6700;border:1px solid #d4a72c;border-radius:6px;padding:.6em .8em;background:#fff8c5}'
+        $h += '.vihje{color:#9a6700;border:1px solid #d4a72c;border-radius:6px;padding:.6em .8em;background:#fff8c5}'
         $h += 'table{border-collapse:collapse} td{padding:3px 14px 3px 0;vertical-align:top}'
         $h += '</style></head><body>'
         $h += '<h1>Vali-IT paigalduse kokkuvõte</h1>'
@@ -992,6 +994,10 @@ function Write-HtmlSummary([string]$DistroName) {
         }
         $manual = @(Get-AllManualSteps)
         if ($manual.Count -gt 0) {
+            $h += ('<p class="vihje"><b>Vihje:</b> kui mõne sammuga tekib probleem või PDF-juhendis jääb midagi segaseks, ' +
+                'küsi julgelt abi AI-lt (ChatGPT, Claude, Gemini vms). Kirjelda probleemi oma sõnadega, lisa vestlusse ' +
+                'kaasa ka sama PDF-juhend (leiad selle brauseri allalaadimiste kaustast) ja kopeeri juurde täpne veateade, ' +
+                'kui see on olemas. Kui ka siis ei õnnestu, pöördu õpetaja poole.</p>')
             $h += '<h2 class="manual">Tee ise läbi</h2><ol>'
             foreach ($m in $manual) {
                 $li = "<li>$(ConvertTo-HtmlText $m.Name)"
@@ -1087,6 +1093,8 @@ function Show-Summary([string]$DistroName) {
         }
         Write-Host ''
         Write-Host 'Tee ise läbi (neid ei saa automatiseerida):' -ForegroundColor Yellow
+        Write-Host ('  Vihje: kui mõne sammuga tekib probleem, küsi julgelt abi AI-lt (ChatGPT, Claude, Gemini vms) — ' +
+            'lisa vestlusse ka PDF-juhend ja täpne veateade.') -ForegroundColor Yellow
         $j = 0
         foreach ($m in $manual) {
             $j++
