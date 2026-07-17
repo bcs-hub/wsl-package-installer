@@ -86,6 +86,21 @@ function Format-Duration([TimeSpan]$t) {
     return "$([math]::Floor($s / 3600))h $([math]::Floor(($s % 3600) / 60))m"
 }
 
+# Result collectors: every removal outcome goes to the console AND into a
+# list, so the run can be summarised as an HTML file at the end (same idea
+# as setup.ps1's desktop summary).
+$script:DoneList = @()
+$script:FailList = @()
+function Add-Done([string]$m) {
+    Write-Ok $m
+    $script:DoneList += $m
+}
+function Add-Failed([string]$m) {
+    Write-Err $m
+    $script:FailList += $m
+    $script:FailCount++
+}
+
 # Same reason as in setup.ps1: 'exit' under 'irm | iex' closes the console
 # window before anything can be read — always pause first.
 function Stop-Uninstaller([int]$Code) {
@@ -176,18 +191,17 @@ function Set-Removed([string]$Kind, [string]$Value) {
 function Remove-App([string]$Id, [string]$Label, [bool]$FromState) {
     & winget list --id $Id -e --accept-source-agreements *> $null
     if ($LASTEXITCODE -ne 0) {
-        Write-Ok "$Label — juba eemaldatud"
+        Add-Done "$Label — juba eemaldatud"
         if ($FromState) { Set-Removed 'app' $Id }
         return
     }
     Write-Info "Eemaldan: $Label ..."
     & winget uninstall --id $Id -e --silent --disable-interactivity --accept-source-agreements
     if ($LASTEXITCODE -eq 0) {
-        Write-Ok "$Label — eemaldatud"
+        Add-Done "$Label — eemaldatud"
         if ($FromState) { Set-Removed 'app' $Id }
     } else {
-        Write-Err "$Label — eemaldamine ebaõnnestus (proovi Windowsi Seaded → Rakendused)"
-        $script:FailCount++
+        Add-Failed "$Label — eemaldamine ebaõnnestus (proovi Windowsi Seaded → Rakendused)"
     }
 }
 
@@ -198,7 +212,7 @@ function Remove-CourseDb {
     $psql = Get-ChildItem 'C:\Program Files\PostgreSQL\*\bin\psql.exe' -ErrorAction SilentlyContinue |
         Sort-Object FullName -Descending | Select-Object -First 1
     if (-not $psql) {
-        Write-Ok "Andmebaas '$DbName' — serverit pole, midagi eemaldada pole"
+        Add-Done "Andmebaas '$DbName' — serverit pole, midagi eemaldada pole"
         Set-Removed 'db' $DbName
         return
     }
@@ -207,44 +221,41 @@ function Remove-CourseDb {
     $rc = $LASTEXITCODE
     Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
     if ($rc -eq 0) {
-        Write-Ok "Andmebaas '$DbName' — eemaldatud"
+        Add-Done "Andmebaas '$DbName' — eemaldatud"
         Set-Removed 'db' $DbName
     } else {
-        Write-Err "Andmebaasi '$DbName' eemaldamine ebaõnnestus (kas serveri parool pole '$PgSuperPassword'?)"
-        $script:FailCount++
+        Add-Failed "Andmebaasi '$DbName' eemaldamine ebaõnnestus (kas serveri parool pole '$PgSuperPassword'?)"
     }
 }
 
 function Remove-Dir([string]$Kind, [string]$Path, [string]$Label) {
     if (-not (Test-Path $Path)) {
-        Write-Ok "$Label — juba eemaldatud"
+        Add-Done "$Label — juba eemaldatud"
         Set-Removed $Kind $Path
         return
     }
     Remove-Item -Recurse -Force $Path -ErrorAction SilentlyContinue
     if (Test-Path $Path) {
-        Write-Err "$Label — eemaldamine ebaõnnestus ($Path)"
-        $script:FailCount++
+        Add-Failed "$Label — eemaldamine ebaõnnestus ($Path)"
     } else {
-        Write-Ok "$Label — eemaldatud"
+        Add-Done "$Label — eemaldatud"
         Set-Removed $Kind $Path
     }
 }
 
 function Remove-Distro([string]$Name) {
     if (-not ((Get-RegisteredDistros) -contains $Name)) {
-        Write-Ok "Ubuntu ($Name) — juba eemaldatud"
+        Add-Done "Ubuntu ($Name) — juba eemaldatud"
         Set-Removed 'distro' $Name
         return
     }
     Write-Info "Eemaldan Ubuntu distro $Name (kõik failid selles kustuvad)..."
     & wsl.exe --unregister $Name *> $null
     if ($LASTEXITCODE -eq 0) {
-        Write-Ok "Ubuntu ($Name) — eemaldatud"
+        Add-Done "Ubuntu ($Name) — eemaldatud"
         Set-Removed 'distro' $Name
     } else {
-        Write-Err "Ubuntu ($Name) eemaldamine ebaõnnestus"
-        $script:FailCount++
+        Add-Failed "Ubuntu ($Name) eemaldamine ebaõnnestus"
     }
 }
 
@@ -253,7 +264,58 @@ function Remove-Distro([string]$Name) {
 function Clear-DistroTraces([string]$Name) {
     & wsl.exe -d $Name -u root -- bash -c `
         'rm -rf /etc/sudoers.d/vali-it /home/*/vali-it-installer /home/*/.vali-it /root/vali-it-installer /root/.vali-it' 2>$null
-    if ($LASTEXITCODE -eq 0) { Write-Ok "Ubuntu ($Name) — installeri jäljed puhastatud (distro ise jääb alles)" }
+    if ($LASTEXITCODE -eq 0) { Add-Done "Ubuntu ($Name) — installeri jäljed puhastatud (distro ise jääb alles)" }
+}
+
+function ConvertTo-HtmlText([string]$s) {
+    return ($s -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;')
+}
+
+# Same idea as setup.ps1's desktop summary: the console dies with the
+# window, the HTML file stays. Separate filename on purpose — this script
+# deletes the installer's own summary as part of the cleanup.
+function Write-UninstallHtml {
+    try {
+        $desktop = [Environment]::GetFolderPath('Desktop')
+        if (-not $desktop) { return }
+        $path = Join-Path $desktop 'Vali-IT-eemaldamise-kokkuvote.html'
+
+        $retry = "irm https://raw.githubusercontent.com/$RepoSlug/main/uninstall.ps1 | iex"
+        if ($Purge) { $retry = "`$env:ITC_PURGE = '1'; $retry" }
+
+        $h = @()
+        $h += '<!doctype html><html lang="et"><head><meta charset="utf-8">'
+        $h += '<title>Vali-IT eemaldamise kokkuvõte</title><style>'
+        $h += 'body{font-family:"Segoe UI",sans-serif;max-width:800px;margin:2em auto;padding:0 1em;line-height:1.5}'
+        $h += 'h1{border-bottom:2px solid #ccc;padding-bottom:.3em} .aeg{color:#666}'
+        $h += '.ok{color:#1a7f37} .fail{color:#b30000}'
+        $h += 'li{margin:.4em 0} code{background:#f2f2f2;padding:2px 5px}'
+        $h += '</style></head><body>'
+        $h += '<h1>Vali-IT eemaldamise kokkuvõte</h1>'
+        $h += "<p class='aeg'>$(Get-Date -Format 'dd.MM.yyyy HH:mm') · Kogu eemaldamine kestis: $(Format-Duration $script:RunTimer.Elapsed)</p>"
+
+        if ($script:DoneList.Count -gt 0) {
+            $h += '<h2 class="ok">Eemaldatud</h2><ul>'
+            foreach ($x in $script:DoneList) { $h += "<li class='ok'>✓ $(ConvertTo-HtmlText $x)</li>" }
+            $h += '</ul>'
+        }
+        if ($script:FailList.Count -gt 0) {
+            $h += '<h2 class="fail">Ebaõnnestus</h2><ul>'
+            foreach ($x in $script:FailList) { $h += "<li class='fail'>✗ $(ConvertTo-HtmlText $x)</li>" }
+            $h += '</ul>'
+            $h += '<p>Ebaõnnestunud kirjed jäid manifesti alles. Uuesti proovimiseks ava PowerShell administraatorina ja käivita:<br>'
+            $h += "<code>$(ConvertTo-HtmlText $retry)</code></p>"
+        }
+        $h += '<p>Mõne rakenduse eemaldaja võib jätta kettale andmekaustu (nt PostgreSQL-i andmed, JetBrains-i vahemälud) — need on ohutud käsitsi kustutada.</p>'
+        $h += "<p>Tehniline logi: <code>$(ConvertTo-HtmlText $LogFile)</code></p>"
+        $h += '</body></html>'
+
+        ($h -join "`n") | Out-File -FilePath $path -Encoding UTF8
+        Write-Ok 'Kokkuvõte salvestati töölauale: Vali-IT-eemaldamise-kokkuvote.html'
+        Start-Process $path
+    } catch {
+        Write-Warn 'Kokkuvõtte salvestamine töölauale ebaõnnestus.'
+    }
 }
 
 # --- main flow ---------------------------------------------------------------
@@ -384,6 +446,8 @@ if (Test-Path $StateFile) {
     }
 }
 
+Write-Host ''
+Write-UninstallHtml
 Write-Host ''
 Write-Info "Kogu eemaldamine kestis: $(Format-Duration $script:RunTimer.Elapsed)"
 if ($script:FailCount -gt 0) {
