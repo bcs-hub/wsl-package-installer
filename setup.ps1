@@ -266,7 +266,7 @@ function Invoke-DistroRoot([string]$Name, [string]$Script) {
     & wsl.exe -d $Name -u root -- bash -c $Script 2>$null
 }
 
-# Read a "a | b | c | d" config file into objects with F1..F4 fields.
+# Read a "a | b | c | d | e" config file into objects with F1..F5 fields.
 function Read-ConfigFile([string]$Path) {
     $rows = @()
     if (-not (Test-Path $Path)) { return $rows }
@@ -279,6 +279,7 @@ function Read-ConfigFile([string]$Path) {
             F2 = $(if ($p.Count -gt 1) { $p[1].Trim() } else { '' })
             F3 = $(if ($p.Count -gt 2) { $p[2].Trim() } else { '' })
             F4 = $(if ($p.Count -gt 3) { $p[3].Trim() } else { '' })
+            F5 = $(if ($p.Count -gt 4) { $p[4].Trim() } else { '' })
         }
     }
     return $rows
@@ -421,7 +422,10 @@ function Install-WindowsApps {
             $wingetArgs += @('--override',
                 '/quiet ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJavaHome')
         }
-        $r = Invoke-TickedJob "[$i/$n] Paigaldan: $($a.F3) (võib võtta mitu minutit)" `
+        # Per-app time hint (config field 5) replaces the generic note when
+        # present — e.g. PostgreSQL is by far the slowest step.
+        $hint = if ($a.F5) { $a.F5 } else { 'võib võtta mitu minutit' }
+        $r = Invoke-TickedJob "[$i/$n] Paigaldan: $($a.F3) ($hint)" `
             'winget' $wingetArgs '' '' $WingetLogFile
         if ($r.Code -eq 999) {
             # Job machinery failed on this machine — run in the foreground

@@ -60,7 +60,9 @@ directly.
   and log-file content are English. Technical output goes to `~/.vali-it/install.log`
   via `run_logged`, never to the screen.
 - The Windows side is config-driven too: `config/windows-apps.conf` (winget id | check
-  command | desc | fallback PDF), `config/intellij-plugins.conf`, `config/manual-steps.conf`.
+  command | desc | fallback PDF | optional time-hint that replaces the generic "võib võtta
+  mitu minutit" during install — `Read-ConfigFile` now parses F1..F5),
+  `config/intellij-plugins.conf`, `config/manual-steps.conf`.
   setup.ps1 extracts the repo tarball on the Windows side to read these. Winget/PostgreSQL/
   IntelliJ behavior CANNOT be tested from this WSL dev machine — only PSSA + parse checks
   here; real verification happens on the user's Windows machines.
