@@ -179,9 +179,12 @@ Valikud keskkonnamuutujatega enne käivitamist:
 
 ```powershell
 $env:ITC_YES = '1'     # ära küsi kinnitust
-$env:ITC_PURGE = '1'   # eemalda ka manifestist puuduvad kursuse rakendused
-                       # (nimekiri config/windows-apps.conf); Ubuntu distro ja
-                       # projektikaust kustuvad ka siis ainult manifesti järgi
+$env:ITC_PURGE = '1'   # TÄIELIK lähtestamine: eemalda ka kõik manifestist
+                       # puuduv — kursuse rakendused (config/windows-apps.conf),
+                       # kõik toetatud Ubuntu distrod, kursuse kaust
+                       # (config/course.conf), JetBrains-i seadetekaustad ja
+                       # PostgreSQL-i jääkandmed. Kasuta testmasinas, kus
+                       # paigaldus tehti enne manifesti olemasolu.
 ```
 
 NB! Ubuntu distro ja kursuse projektikausta kustutamine hävitab kõik neis

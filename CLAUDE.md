@@ -78,9 +78,11 @@ directly.
   Re-runs use it to say "paigaldatud varasemal käivitusel" instead of "juba olemas" /
   the IntelliJ "impordi ise" warning (which confused testers into redoing work), and to
   skip the headless plugin re-install. `uninstall.ps1` removes ONLY manifest entries by
-  default (`$env:ITC_PURGE='1'` also removes config-listed apps missing from it;
-  `$env:ITC_YES='1'` skips the confirmation) — pre-existing software stays untouched,
-  mirroring the installer. Both helpers are best-effort and must never fail a step.
+  default — pre-existing software stays untouched, mirroring the installer.
+  `$env:ITC_PURGE='1'` is a FULL test-machine reset: also config-listed apps, every
+  supported distro on the machine, the course folder, JetBrains config dirs and
+  PostgreSQL leftovers (for machines installed before the manifest existed).
+  `$env:ITC_YES='1'` skips the JAH confirmation. Both helpers are best-effort and must never fail a step.
 - **The WSL/Ubuntu part of setup.ps1 is best-effort**: distro-level failures go through
   `Stop-WslPart` (throw → main-flow catch → one red summary entry with PDF 006) and the
   run continues to course setup + summary; only pre-WSL problems (no admin, old Windows,

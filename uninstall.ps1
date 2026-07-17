@@ -12,10 +12,13 @@
 # NOTE: no param() block on purpose — Windows PowerShell 5.1 cannot parse a
 # top-level param block through 'irm ... | iex'. Overrides are env vars:
 #   $env:ITC_YES = '1'     # skip the confirmation prompt (automation)
-#   $env:ITC_PURGE = '1'   # ALSO remove course apps that are missing from the
-#                          # manifest (list comes from config/windows-apps.conf
-#                          # on GitHub). Distros and course folders are still
-#                          # removed only when the manifest says we made them.
+#   $env:ITC_PURGE = '1'   # FULL test-machine reset: also removes everything
+#                          # the manifest does not mention — course apps from
+#                          # config/windows-apps.conf, every supported Ubuntu
+#                          # distro, the course folder from config/course.conf,
+#                          # JetBrains config dirs and PostgreSQL leftovers.
+#                          # For machines where the installer ran before the
+#                          # manifest existed, or for a clean slate.
 #   $env:ITC_BRANCH = 'my-branch'
 #
 # All user-facing messages are in Estonian; comments are in English.
@@ -73,27 +76,41 @@ function Read-StateEntries {
     return $rows
 }
 
-# Purge mode needs the app list; download the repo tarball only for that.
-function Get-ConfigApps {
+# Purge mode reads the repo config files; download the tarball once.
+$script:CfgDir = ''
+function Get-RepoConfigDir {
+    if ($script:CfgDir) { return $script:CfgDir }
     $tar = Join-Path $env:TEMP 'vali-it-uninstall.tar.gz'
     $dir = Join-Path $env:TEMP 'vali-it-uninstall-src'
     try {
         Invoke-WebRequest -Uri "https://github.com/$RepoSlug/archive/refs/heads/$Branch.tar.gz" `
             -OutFile $tar -UseBasicParsing -ErrorAction Stop
-    } catch { return @() }
+    } catch { return '' }
     if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
     & tar.exe -xzf $tar -C $dir --strip-components=1 2>$null
-    if ($LASTEXITCODE -ne 0) { return @() }
+    if ($LASTEXITCODE -ne 0) { return '' }
+    $script:CfgDir = $dir
+    return $dir
+}
+
+# Read a repo "a | b | c | d" config file into F1..F4 objects (same format
+# as setup.ps1's Read-ConfigFile). Empty when the download failed.
+function Read-RepoConf([string]$File) {
     $rows = @()
-    $conf = Join-Path $dir 'config\windows-apps.conf'
-    if (Test-Path $conf) {
-        foreach ($raw in (Get-Content -Path $conf -Encoding UTF8)) {
-            $line = ($raw -split '#', 2)[0].Trim()
-            if (-not $line) { continue }
-            $p = $line -split '\|'
-            $desc = if ($p.Count -gt 2) { $p[2].Trim() } else { $p[0].Trim() }
-            $rows += [pscustomobject]@{ Id = $p[0].Trim(); Desc = $desc }
+    $dir = Get-RepoConfigDir
+    if (-not $dir) { return $rows }
+    $conf = Join-Path $dir "config\$File"
+    if (-not (Test-Path $conf)) { return $rows }
+    foreach ($raw in (Get-Content -Path $conf -Encoding UTF8)) {
+        $line = ($raw -split '#', 2)[0].Trim()
+        if (-not $line) { continue }
+        $p = $line -split '\|'
+        $rows += [pscustomobject]@{
+            F1 = $p[0].Trim()
+            F2 = $(if ($p.Count -gt 1) { $p[1].Trim() } else { '' })
+            F3 = $(if ($p.Count -gt 2) { $p[2].Trim() } else { '' })
+            F4 = $(if ($p.Count -gt 3) { $p[3].Trim() } else { '' })
         }
     }
     return $rows
@@ -214,20 +231,38 @@ if ($entries.Count -eq 0 -and -not $Purge) {
     Stop-Uninstaller 0
 }
 
-# Build the removal plan. Apps: manifest entries, plus (purge mode) every
-# app from config/windows-apps.conf that the manifest does not mention.
+# Build the removal plan. Manifest entries first; purge mode widens it to a
+# full test-machine reset from the repo config (apps, every supported
+# distro on the machine, the course folder, leftover config/data dirs).
 $stateApps = @($entries | Where-Object { $_.Kind -eq 'app' } | ForEach-Object { $_.Value })
 $planApps = @($stateApps | ForEach-Object { [pscustomobject]@{ Id = $_; Label = $_; FromState = $true } })
-if ($Purge) {
-    foreach ($a in @(Get-ConfigApps)) {
-        if ($stateApps -contains $a.Id) { continue }
-        $planApps += [pscustomobject]@{ Id = $a.Id; Label = "$($a.Desc) (polnud manifestis)"; FromState = $false }
-    }
-}
 $planDb = ($Purge -or @($entries | Where-Object { $_.Kind -eq 'db' }).Count -gt 0)
 $planSettings = @($entries | Where-Object { $_.Kind -eq 'idea-settings' } | ForEach-Object { $_.Value })
 $planCourse = @($entries | Where-Object { $_.Kind -eq 'course' } | ForEach-Object { $_.Value })
 $planDistros = @($entries | Where-Object { $_.Kind -eq 'distro' } | ForEach-Object { $_.Value })
+$planExtraDirs = @()
+if ($Purge) {
+    foreach ($a in @(Read-RepoConf 'windows-apps.conf')) {
+        if ($stateApps -contains $a.F1) { continue }
+        $desc = if ($a.F3) { $a.F3 } else { $a.F1 }
+        $planApps += [pscustomobject]@{ Id = $a.F1; Label = "$desc (polnud manifestis)"; FromState = $false }
+    }
+    # The whole course parent folder (e.g. %USERPROFILE%\vali-it).
+    foreach ($r in @(Read-RepoConf 'course.conf')) {
+        if (-not $r.F2) { continue }
+        $p = Join-Path $env:USERPROFILE $r.F2
+        if ((Test-Path $p) -and $planCourse -notcontains $p) { $planCourse += $p }
+    }
+    # Every supported distro on the machine, manifest or not.
+    foreach ($d in @(Get-RegisteredDistros)) {
+        if ($KnownDistros -contains $d -and $planDistros -notcontains $d) { $planDistros += $d }
+    }
+    # Dirs the app uninstallers leave behind (IDE settings, DB data).
+    foreach ($p in @((Join-Path $env:APPDATA 'JetBrains'), (Join-Path $env:LOCALAPPDATA 'JetBrains'),
+            'C:\Program Files\PostgreSQL')) {
+        if (Test-Path $p) { $planExtraDirs += $p }
+    }
+}
 
 Write-Info 'Eemaldatakse:'
 foreach ($a in $planApps) { Write-Host "  - Rakendus: $($a.Label)" }
@@ -235,6 +270,7 @@ if ($planDb) { Write-Host "  - PostgreSQL andmebaas: $DbName" }
 foreach ($s in $planSettings) { Write-Host "  - IntelliJ seaded ja pluginad: $s" }
 foreach ($c in $planCourse) { Write-Host "  - Kursuse projekt: $c  (KAUST KOOS KOGU TÖÖGA KUSTUB!)" -ForegroundColor Yellow }
 foreach ($d in $planDistros) { Write-Host "  - Ubuntu distro: $d  (KÕIK FAILID SELLES KUSTUVAD!)" -ForegroundColor Yellow }
+foreach ($p in $planExtraDirs) { Write-Host "  - Jääkkaust: $p" }
 Write-Host '  - Installeri jäljed: töölaua kokkuvõte, ajutised failid, manifest'
 Write-Host ''
 
@@ -260,6 +296,7 @@ foreach ($s in $planSettings) {
         }
     }
 }
+foreach ($p in $planExtraDirs) { Remove-Dir 'extra' $p "Jääkkaust $p" }
 foreach ($c in $planCourse) { Remove-Dir 'course' $c 'Kursuse projekt' }
 foreach ($d in $planDistros) {
     Remove-Distro $d
