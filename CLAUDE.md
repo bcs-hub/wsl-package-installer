@@ -65,7 +65,12 @@ directly.
   IntelliJ behavior CANNOT be tested from this WSL dev machine — only PSSA + parse checks
   here; real verification happens on the user's Windows machines.
 - Windows apps run BEFORE the WSL part (a WSL reboot then lands after apps are done).
-  Existing Windows installs are never touched or upgraded. An app counts as present when
+  Existing Windows installs are never touched or upgraded. Slow steps (winget installs,
+  IntelliJ plugins, npm ci, gradlew) run through `Invoke-TickedJob` (background job) or a
+  process-poll loop so the console line ticks elapsed seconds — proof of life for students;
+  winget's own output goes to `%TEMP%\vali-it-winget.log`, durations land in the summary
+  and as the manifest's 4th field. `Code = 999` from Invoke-TickedJob means the job
+  machinery failed → the winget call site falls back to a visible foreground run. An app counts as present when
   winget knows the id OR its check command is on PATH (a differently-packaged Node broke
   this once); IntelliJ is found via `Find-IdeaExe` path globs (Program Files, LocalAppData,
   Toolbox — winget can't see Toolbox installs). PostgreSQL superuser password is

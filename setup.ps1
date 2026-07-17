@@ -44,6 +44,10 @@ $WslGuidePdf = 'docs/install/006-WSL-Ubuntu-install-Windows-masinas.pdf'
 $StateDir = Join-Path $env:LOCALAPPDATA 'vali-it'
 $StateFile = Join-Path $StateDir 'installed.txt'
 
+# winget runs in a background job (so the console can tick elapsed time);
+# its own output lands here instead of the screen.
+$WingetLogFile = Join-Path $env:TEMP 'vali-it-winget.log'
+
 # Result tracking for the final summary.
 $script:OkList = @()
 $script:FailList = @()
@@ -102,6 +106,46 @@ function Write-Ok([string]$m) { Write-Host "✓ $m" -ForegroundColor Green }
 function Write-Warn([string]$m) { Write-Host "! $m" -ForegroundColor Yellow }
 function Write-Err([string]$m) { Write-Host "✗ $m" -ForegroundColor Red }
 
+function Format-Duration([TimeSpan]$t) {
+    $s = [int][math]::Floor($t.TotalSeconds)
+    if ($s -lt 60) { return "${s}s" }
+    return "$([math]::Floor($s / 60))m $($s % 60)s"
+}
+
+# Run a slow external command in a background job while ticking the elapsed
+# time on one console line — a silent minutes-long step looks hung, and the
+# ticking seconds are the student's proof of life. The command's own output
+# goes to $OutLog, not the screen. Returns @{ Code; Duration }; Code 999
+# means the job machinery itself failed (caller may fall back to running in
+# the foreground).
+function Invoke-TickedJob([string]$Label, [string]$Exe, [object[]]$CmdArgs,
+    [string]$Dir = '', [string]$JavaHome = '', [string]$OutLog = '') {
+    $j = Start-Job -ScriptBlock {
+        param($Exe, $CmdArgs, $Dir, $JavaHome)
+        if ($Dir) { Set-Location $Dir }
+        if ($JavaHome) { $env:JAVA_HOME = $JavaHome }
+        $out = & $Exe @CmdArgs 2>&1 | Out-String
+        [pscustomobject]@{ Out = $out; Code = $LASTEXITCODE }
+    } -ArgumentList @($Exe, $CmdArgs, $Dir, $JavaHome)
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($j.State -eq 'Running') {
+        Write-Host ("`r$Label ... " + (Format-Duration $sw.Elapsed) + '  ') -NoNewline -ForegroundColor Cyan
+        Start-Sleep -Seconds 1
+    }
+    $dur = Format-Duration $sw.Elapsed
+    Write-Host ("`r$Label ... $dur  ") -ForegroundColor Cyan
+    $res = @(Receive-Job $j 2>$null) |
+        Where-Object { $_ -and $_.PSObject.Properties['Code'] } | Select-Object -Last 1
+    Remove-Job $j -Force -ErrorAction SilentlyContinue
+    # No result object, or a null exit code (command not found inside the
+    # job) — both mean the command never really ran.
+    if ($null -eq $res -or $null -eq $res.Code) { return [pscustomobject]@{ Code = 999; Duration = $dur } }
+    if ($res.Out -and $OutLog) {
+        try { $res.Out | Out-File -FilePath $OutLog -Append -Encoding UTF8 } catch { }
+    }
+    return [pscustomobject]@{ Code = $res.Code; Duration = $dur }
+}
+
 function Add-Ok([string]$Name) { $script:OkList += $Name }
 function Add-Fail([string]$Name, [string]$Pdf, [string]$Extra = '') {
     $script:FailList += [pscustomobject]@{ Name = $Name; Pdf = $Pdf; Extra = $Extra }
@@ -158,12 +202,15 @@ function Test-StateEntry([string]$Kind, [string]$Value) {
     return $false
 }
 
-function Add-StateEntry([string]$Kind, [string]$Value) {
+# $Note is a free-form fourth field (e.g. the install duration); readers
+# only ever look at the first two fields.
+function Add-StateEntry([string]$Kind, [string]$Value, [string]$Note = '') {
     try {
         if (Test-StateEntry $Kind $Value) { return }
         New-Item -ItemType Directory -Path $StateDir -Force | Out-Null
-        "$Kind|$Value|$(Get-Date -Format 'yyyy-MM-dd HH:mm')" |
-            Out-File -FilePath $StateFile -Append -Encoding UTF8
+        $line = "$Kind|$Value|$(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+        if ($Note) { $line += "|$Note" }
+        $line | Out-File -FilePath $StateFile -Append -Encoding UTF8
     } catch { }
 }
 
@@ -314,7 +361,6 @@ function Install-WindowsApps {
             }
             continue
         }
-        Write-Info "[$i/$n] Paigaldan: $($a.F3) (võib võtta mitu minutit)..."
         $wingetArgs = @('install', '--id', $a.F1, '-e', '--silent',
             '--accept-package-agreements', '--accept-source-agreements',
             '--disable-interactivity')
@@ -330,11 +376,19 @@ function Install-WindowsApps {
             $wingetArgs += @('--override',
                 '/quiet ADDLOCAL=FeatureMain,FeatureEnvironment,FeatureJavaHome')
         }
-        & winget @wingetArgs
-        if ($LASTEXITCODE -eq 0) {
-            Write-Ok "[$i/$n] $($a.F3) — paigaldatud"
-            Add-Ok $a.F3
-            Add-StateEntry 'app' $a.F1
+        $r = Invoke-TickedJob "[$i/$n] Paigaldan: $($a.F3) (võib võtta mitu minutit)" `
+            'winget' $wingetArgs '' '' $WingetLogFile
+        if ($r.Code -eq 999) {
+            # Job machinery failed on this machine — run in the foreground
+            # like the old days (winget's own progress shows instead).
+            & winget @wingetArgs
+            $r = [pscustomobject]@{ Code = $LASTEXITCODE; Duration = '' }
+        }
+        $durText = if ($r.Duration) { " ($($r.Duration))" } else { '' }
+        if ($r.Code -eq 0) {
+            Write-Ok "[$i/$n] $($a.F3) — paigaldatud$durText"
+            Add-Ok "$($a.F3)$durText"
+            Add-StateEntry 'app' $a.F1 $r.Duration
         } else {
             Write-Err "[$i/$n] $($a.F3) — paigaldamine ebaõnnestus"
             Add-Fail $a.F3 $a.F4
@@ -479,14 +533,28 @@ function Invoke-IdeaSetup {
         return
     }
 
-    Write-Info 'Paigaldan IntelliJ pluginad (see võib võtta hetke)...'
     $ids = @($plugins | ForEach-Object { $_.F1 })
+    # A GUI exe returns immediately under '&', so poll the process while
+    # ticking the elapsed time (same proof-of-life as Invoke-TickedJob).
+    $label = 'Paigaldan IntelliJ pluginad'
     $proc = Start-Process -FilePath $ideaExe.FullName -ArgumentList (@('installPlugins') + $ids) `
-        -Wait -PassThru -WindowStyle Hidden
+        -PassThru -WindowStyle Hidden -ErrorAction SilentlyContinue
+    if (-not $proc) {
+        Write-Err 'IntelliJ pluginate paigaldamine ebaõnnestus'
+        foreach ($p in $plugins) { Add-Fail "IntelliJ plugin: $($p.F2)" $p.F3 }
+        return
+    }
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    while (-not $proc.HasExited) {
+        Write-Host ("`r$label ... " + (Format-Duration $sw.Elapsed) + '  ') -NoNewline -ForegroundColor Cyan
+        Start-Sleep -Seconds 1
+    }
+    $dur = Format-Duration $sw.Elapsed
+    Write-Host ("`r$label ... $dur  ") -ForegroundColor Cyan
     if ($proc.ExitCode -eq 0) {
-        Write-Ok 'IntelliJ pluginad — paigaldatud'
+        Write-Ok "IntelliJ pluginad — paigaldatud ($dur)"
         Add-Ok "IntelliJ pluginad: $pluginNames"
-        Add-StateEntry 'idea-plugins' $pluginSet
+        Add-StateEntry 'idea-plugins' $pluginSet $dur
     } else {
         Write-Err 'IntelliJ pluginate paigaldamine ebaõnnestus'
         foreach ($p in $plugins) { Add-Fail "IntelliJ plugin: $($p.F2)" $p.F3 }
@@ -797,13 +865,10 @@ function Invoke-CourseSetup {
                     Add-Fail "$desc — npm puudub, frontendi sõltuvusi ei saanud ette laadida (esimene käivitus laeb need ise)" ''
                     $ok = $false
                 } else {
-                    Write-Info 'Laen frontendi sõltuvused (npm ci — võib võtta mitu minutit)...'
-                    Push-Location $frontend
-                    & $npm ci --no-audit --no-fund *>> $log
-                    $rc = $LASTEXITCODE
-                    Pop-Location
-                    if ($rc -eq 0) {
-                        Write-Ok "$desc — frontendi sõltuvused laaditud"
+                    $r = Invoke-TickedJob 'Laen frontendi sõltuvused (npm ci — võib võtta mitu minutit)' `
+                        $npm @('ci', '--no-audit', '--no-fund') $frontend '' $log
+                    if ($r.Code -eq 0) {
+                        Write-Ok "$desc — frontendi sõltuvused laaditud ($($r.Duration))"
                     } else {
                         Add-Fail "$desc — frontendi sõltuvuste eellaadimine ebaõnnestus (esimene käivitus laeb need ise; logi: $log)" ''
                         $ok = $false
@@ -821,18 +886,14 @@ function Invoke-CourseSetup {
                 Add-Fail "$desc — Java 21 puudub, backendi sõltuvusi ei saanud ette laadida (esimene käivitus laeb need ise)" ''
                 $ok = $false
             } else {
-                Write-Info 'Laen backendi sõltuvused (Gradle — võib võtta mitu minutit)...'
                 # Point gradlew at the found JDK explicitly: a fresh Temurin
                 # is not on this session's PATH and JAVA_HOME may be unset.
-                $oldJavaHome = $env:JAVA_HOME
-                $env:JAVA_HOME = Split-Path (Split-Path $jdk.FullName)
-                Push-Location $backend
-                & .\gradlew.bat --no-daemon dependencies *>> $log
-                $rc = $LASTEXITCODE
-                Pop-Location
-                $env:JAVA_HOME = $oldJavaHome
-                if ($rc -eq 0) {
-                    Write-Ok "$desc — backendi sõltuvused laaditud"
+                # The job runs in its own process, so JAVA_HOME stays local.
+                $jdkHome = Split-Path (Split-Path $jdk.FullName)
+                $r = Invoke-TickedJob 'Laen backendi sõltuvused (Gradle — võib võtta mitu minutit)' `
+                    (Join-Path $backend 'gradlew.bat') @('--no-daemon', 'dependencies') $backend $jdkHome $log
+                if ($r.Code -eq 0) {
+                    Write-Ok "$desc — backendi sõltuvused laaditud ($($r.Duration))"
                 } else {
                     Add-Fail "$desc — backendi sõltuvuste eellaadimine ebaõnnestus (esimene käivitus laeb need ise; logi: $log)" ''
                     $ok = $false
